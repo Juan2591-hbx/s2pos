@@ -18,25 +18,25 @@ export default function Inventory() {
 
   return (
     <div>
-      <h1>Inventario</h1>
-      <table>
+      <h1>Inventario S2POS</h1>
+       <table border="1">
         <thead>
-          <tr>
+           <tr>
             <th>Producto</th>
             <th>Location</th>
             <th>Stock</th>
-          </tr>
+           </tr>
         </thead>
         <tbody>
           {data.map((item) => (
             <tr key={item.id}>
-              <td>{item.product_id}</td>
-              <td>{item.location_id}</td>
-              <td>{item.total_stock}</td>
-            </tr>
+               <td>{item.product_id}</td>
+               <td>{item.location_id}</td>
+               <td>{item.total_stock}</td>
+             </tr>
           ))}
         </tbody>
-      </table>
+       </table>
     </div>
   )
 }
