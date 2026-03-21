@@ -13,13 +13,10 @@ export default function Alerts() {
   async function fetchAlerts() {
     setLoading(true)
     try {
-      // Traer alertas con nombre del producto
+      // Traer todas las alertas (ya tienen los nombres)
       const { data, error } = await supabase
         .from('restock_alerts')
-        .select(`
-          *,
-          products (name)
-        `)
+        .select('*')
 
       if (error) throw error
       setAlerts(data || [])
@@ -78,34 +75,44 @@ export default function Alerts() {
             <thead>
               <tr style={{ backgroundColor: '#ff9800', color: 'white' }}>
                 <th>Producto</th>
+                <th>Ubicación</th>
                 <th>Stock Actual</th>
-                <th>Stock Mínimo</th>
-                <th>Estado</th>
+                <th>Stock Objetivo</th>
+                <th>Envío Sugerido</th>
+                <th>Ratio Stock</th>
+                <th>Nivel Alerta</th>
                </tr>
             </thead>
             <tbody>
-              {alerts.map((alert) => (
-                <tr key={alert.id} style={{ backgroundColor: '#fff3e0' }}>
-                  <td>{alert.products?.name || alert.product_id}</td>
-                  <td style={{ textAlign: 'center', fontWeight: 'bold', color: 'red' }}>
+              {alerts.map((alert, index) => (
+                <tr key={index} style={{ backgroundColor: alert.alert_level === 'LOW' ? '#fff3e0' : '#ffe0e0' }}>
+                  <td>{alert.product} </td>
+                  <td>{alert.location} </td>
+                  <td style={{ textAlign: 'center', fontWeight: 'bold', color: alert.current_stock < alert.target_stock ? 'red' : 'green' }}>
                     {alert.current_stock}
-                  </td>
-                  <td style={{ textAlign: 'center' }}>{alert.min_stock}</td>
+                   </td>
+                  <td style={{ textAlign: 'center' }}>{alert.target_stock}</td>
+                  <td style={{ textAlign: 'center', fontWeight: 'bold', color: '#0070f3' }}>
+                    {alert.suggested_send}
+                   </td>
+                  <td style={{ textAlign: 'center' }}>
+                    {alert.stock_ratio}
+                   </td>
                   <td style={{ textAlign: 'center' }}>
                     <span style={{ 
-                      backgroundColor: '#ff9800', 
+                      backgroundColor: alert.alert_level === 'LOW' ? '#ff9800' : '#f44336',
                       color: 'white', 
                       padding: '3px 8px', 
                       borderRadius: '12px',
                       fontSize: '12px'
                     }}>
-                      Por reabastecer
+                      {alert.alert_level}
                     </span>
-                  </td>
-                </tr>
+                   </td>
+                 </tr>
               ))}
             </tbody>
-          </table>
+           </table>
           
           <div style={{ marginTop: '20px', fontSize: '12px', color: '#666' }}>
             Total de alertas: {alerts.length}
