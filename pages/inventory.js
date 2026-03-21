@@ -13,12 +13,15 @@ export default function Inventory() {
   async function fetchData() {
     setLoading(true)
     try {
-      // Primero obtenemos los datos del inventario
+      console.log('=== DIAGNÓSTICO DE INVENTARIO ===')
+      
+      // 1. Traer inventario
       const { data: inventory, error: invError } = await supabase
         .from('inventory_totals')
-        .select('*')
+        .select('product_id, location_id, total_stock')
 
       if (invError) throw invError
+      console.log('1. Inventario:', inventory)
 
       if (!inventory || inventory.length === 0) {
         setData([])
@@ -26,37 +29,56 @@ export default function Inventory() {
         return
       }
 
-      // Obtenemos los nombres de los productos
+      // 2. Obtener productos
       const productIds = inventory.map(item => item.product_id)
+      console.log('2. Buscando productos con IDs:', productIds)
+      
       const { data: products, error: prodError } = await supabase
         .from('products')
         .select('id, name')
-        .in('id', productIds)
-
+      
       if (prodError) throw prodError
+      console.log('3. Todos los productos disponibles:', products)
+      
+      // Crear mapa de productos
+      const productMap = {}
+      products?.forEach(p => {
+        productMap[p.id] = p.name
+      })
+      console.log('4. Mapa de productos:', productMap)
 
-      // Obtenemos los nombres de las ubicaciones
+      // 3. Obtener ubicaciones
       const locationIds = inventory.map(item => item.location_id)
+      console.log('5. Buscando ubicaciones con IDs:', locationIds)
+      
       const { data: locations, error: locError } = await supabase
         .from('locations')
         .select('id, name')
-        .in('id', locationIds)
-
-      if (locError) throw locError
-
-      // Crear mapas de nombres
-      const productMap = {}
-      products?.forEach(p => { productMap[p.id] = p.name })
       
+      if (locError) throw locError
+      console.log('6. Todas las ubicaciones disponibles:', locations)
+      
+      // Crear mapa de ubicaciones
       const locationMap = {}
-      locations?.forEach(l => { locationMap[l.id] = l.name })
+      locations?.forEach(l => {
+        locationMap[l.id] = l.name
+      })
+      console.log('7. Mapa de ubicaciones:', locationMap)
 
-      // Combinar datos
-      const enrichedData = inventory.map(item => ({
-        ...item,
-        product_name: productMap[item.product_id] || item.product_id,
-        location_name: locationMap[item.location_id] || item.location_id
-      }))
+      // 4. Combinar
+      const enrichedData = inventory.map(item => {
+        const productName = productMap[item.product_id]
+        const locationName = locationMap[item.location_id]
+        
+        console.log(`🔍 Producto ID: ${item.product_id} → ${productName || 'NO ENCONTRADO'}`)
+        console.log(`📍 Ubicación ID: ${item.location_id} → ${locationName || 'NO ENCONTRADO'}`)
+        
+        return {
+          ...item,
+          product_name: productName || `❌ ${item.product_id}`,
+          location_name: locationName || `❌ ${item.location_id}`
+        }
+      })
 
       setData(enrichedData)
     } catch (err) {
