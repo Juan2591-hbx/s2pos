@@ -43,7 +43,7 @@ export default function Inventory() {
       // Crear mapa de productos
       const productMap = {}
       products?.forEach(p => {
-        productMap[p.id] = p.name
+        productMap[p.id] = products.name
       })
       console.log('4. Mapa de productos:', productMap)
 
