@@ -13,7 +13,6 @@ export default function Alerts() {
   async function fetchAlerts() {
     setLoading(true)
     try {
-      // Traer todas las alertas (ya tienen los nombres)
       const { data, error } = await supabase
         .from('restock_alerts')
         .select('*')
@@ -28,11 +27,23 @@ export default function Alerts() {
     }
   }
 
+  // Función para obtener color según nivel
+  const getLevelColor = (level) => {
+    switch(level) {
+      case 'CRITICAL': return '#d32f2f'
+      case 'VERY LOW': return '#f44336'
+      case 'LOW': return '#ff9800'
+      case 'WARNING': return '#ffc107'
+      case 'MEDIUM': return '#4caf50'
+      default: return '#9e9e9e'
+    }
+  }
+
   if (loading) {
     return (
       <div style={{ padding: '20px', fontFamily: 'sans-serif' }}>
-        <h1>⚠️ Alertas de Inventario</h1>
-        <p>Cargando alertas...</p>
+        <h1>📊 Dashboard de Inventario</h1>
+        <p>Cargando datos...</p>
       </div>
     )
   }
@@ -40,7 +51,7 @@ export default function Alerts() {
   if (error) {
     return (
       <div style={{ padding: '20px', fontFamily: 'sans-serif' }}>
-        <h1>⚠️ Alertas de Inventario</h1>
+        <h1>📊 Dashboard de Inventario</h1>
         <div style={{ color: 'red', border: '1px solid red', padding: '10px', borderRadius: '5px' }}>
           <strong>Error:</strong> {error}
         </div>
@@ -53,7 +64,7 @@ export default function Alerts() {
 
   return (
     <div style={{ padding: '20px', fontFamily: 'sans-serif' }}>
-      <h1>⚠️ Alertas de Inventario</h1>
+      <h1>📊 Dashboard de Inventario</h1>
       
       {alerts.length === 0 ? (
         <div style={{ 
@@ -63,65 +74,73 @@ export default function Alerts() {
           borderRadius: '5px',
           border: '1px solid #c3e6cb'
         }}>
-          ✅ ¡Todas las existencias están en niveles saludables! No hay alertas activas.
+          ✅ No hay datos de inventario disponibles.
         </div>
       ) : (
         <>
-          <p style={{ marginBottom: '20px', color: '#ff9800' }}>
-            ⚠️ Se encontraron {alerts.length} alerta(s) de productos con stock bajo:
+          <p style={{ marginBottom: '20px', color: '#666' }}>
+            Estado actual del inventario para cada producto y ubicación:
           </p>
           
           <table border="1" cellPadding="8" style={{ borderCollapse: 'collapse', width: '100%' }}>
             <thead>
-              <tr style={{ backgroundColor: '#ff9800', color: 'white' }}>
+              <tr style={{ backgroundColor: '#f0f0f0' }}>
                 <th>Producto</th>
                 <th>Ubicación</th>
                 <th>Stock Actual</th>
                 <th>Stock Objetivo</th>
                 <th>Envío Sugerido</th>
                 <th>Ratio Stock</th>
-                <th>Nivel Alerta</th>
-               </tr>
+                <th>Nivel Inventario</th>
+              </tr>
             </thead>
             <tbody>
               {alerts.map((alert, index) => (
-                <tr key={index} style={{ backgroundColor: alert.alert_level === 'LOW' ? '#fff3e0' : '#ffe0e0' }}>
-                  <td>{alert.product} </td>
-                  <td>{alert.location} </td>
-                  <td style={{ textAlign: 'center', fontWeight: 'bold', color: alert.current_stock < alert.target_stock ? 'red' : 'green' }}>
+                <tr key={index}>
+                  <td>{alert.product}</td>
+                  <td>{alert.location}</td>
+                  <td style={{ 
+                    textAlign: 'center', 
+                    fontWeight: 'bold',
+                    color: alert.current_stock < alert.target_stock ? '#d32f2f' : '#2e7d32'
+                  }}>
                     {alert.current_stock}
-                   </td>
+                  </td>
                   <td style={{ textAlign: 'center' }}>{alert.target_stock}</td>
-                  <td style={{ textAlign: 'center', fontWeight: 'bold', color: '#0070f3' }}>
+                  <td style={{ textAlign: 'center', fontWeight: 'bold', color: '#1976d2' }}>
                     {alert.suggested_send}
-                   </td>
+                  </td>
                   <td style={{ textAlign: 'center' }}>
-                    {alert.stock_ratio}
-                   </td>
+                    {typeof alert.stock_ratio === 'number' 
+                      ? `${(alert.stock_ratio * 100).toFixed(1)}%` 
+                      : alert.stock_ratio}
+                  </td>
                   <td style={{ textAlign: 'center' }}>
                     <span style={{ 
-                      backgroundColor: alert.alert_level === 'LOW' ? '#ff9800' : '#f44336',
+                      backgroundColor: getLevelColor(alert.alert_level),
                       color: 'white', 
-                      padding: '3px 8px', 
-                      borderRadius: '12px',
-                      fontSize: '12px'
+                      padding: '4px 12px', 
+                      borderRadius: '20px',
+                      fontSize: '12px',
+                      fontWeight: 'bold',
+                      display: 'inline-block'
                     }}>
                       {alert.alert_level}
                     </span>
-                   </td>
-                 </tr>
+                  </td>
+                </tr>
               ))}
             </tbody>
-           </table>
+          </table>
           
           <div style={{ marginTop: '20px', fontSize: '12px', color: '#666' }}>
-            Total de alertas: {alerts.length}
+            Total de productos: {alerts.length}
           </div>
         </>
       )}
       
       <div style={{ marginTop: '30px' }}>
-        <a href="/inventory" style={{ color: '#0070f3', textDecoration: 'none' }}>
+        <a href="/inventory" style={{ color: '#0070f3', textDecoration: 'none', marginRight: '20px' }}>
           ← Volver al Inventario
         </a>
       </div>
