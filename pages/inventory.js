@@ -13,17 +13,52 @@ export default function Inventory() {
   async function fetchData() {
     setLoading(true)
     try {
-      const { data, error } = await supabase
+      // Primero obtenemos los datos del inventario
+      const { data: inventory, error: invError } = await supabase
         .from('inventory_totals')
-        .select(`
-          id,
-          total_stock,
-          products ( name ),
-          locations ( name )
-        `)
+        .select('*')
 
-      if (error) throw error
-      setData(data || [])
+      if (invError) throw invError
+
+      if (!inventory || inventory.length === 0) {
+        setData([])
+        setLoading(false)
+        return
+      }
+
+      // Obtenemos los nombres de los productos
+      const productIds = inventory.map(item => item.product_id)
+      const { data: products, error: prodError } = await supabase
+        .from('products')
+        .select('id, name')
+        .in('id', productIds)
+
+      if (prodError) throw prodError
+
+      // Obtenemos los nombres de las ubicaciones
+      const locationIds = inventory.map(item => item.location_id)
+      const { data: locations, error: locError } = await supabase
+        .from('locations')
+        .select('id, name')
+        .in('id', locationIds)
+
+      if (locError) throw locError
+
+      // Crear mapas de nombres
+      const productMap = {}
+      products?.forEach(p => { productMap[p.id] = p.name })
+      
+      const locationMap = {}
+      locations?.forEach(l => { locationMap[l.id] = l.name })
+
+      // Combinar datos
+      const enrichedData = inventory.map(item => ({
+        ...item,
+        product_name: productMap[item.product_id] || item.product_id,
+        location_name: locationMap[item.location_id] || item.location_id
+      }))
+
+      setData(enrichedData)
     } catch (err) {
       console.error('Error:', err)
       setError(err.message)
@@ -72,10 +107,10 @@ export default function Inventory() {
               </tr>
             </thead>
             <tbody>
-              {data.map((item) => (
-                <tr key={item.id}>
-                  <td>{item.products?.name || item.product_id}</td>
-                  <td>{item.locations?.name || item.location_id}</td>
+              {data.map((item, index) => (
+                <tr key={index}>
+                  <td>{item.product_name}</td>
+                  <td>{item.location_name}</td>
                   <td style={{ textAlign: 'center', fontWeight: 'bold' }}>
                     {item.total_stock}
                   </td>
