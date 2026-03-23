@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
 
 export default function Movements() {
@@ -9,10 +9,46 @@ export default function Movements() {
     movement_type: 'restock',
     notes: ''
   })
+  const [products, setProducts] = useState([])
+  const [locations, setLocations] = useState([])
   const [loading, setLoading] = useState(false)
+  const [loadingData, setLoadingData] = useState(true)
   const [message, setMessage] = useState(null)
 
-  // Tipos de movimiento (excluyendo 'sale' que es automático)
+  // Cargar productos y ubicaciones al iniciar
+  useEffect(() => {
+    fetchData()
+  }, [])
+
+  async function fetchData() {
+    try {
+      // Cargar productos (id + name)
+      const { data: productsData, error: prodError } = await supabase
+        .from('products')
+        .select('id, name')
+        .order('name')
+
+      if (prodError) throw prodError
+      setProducts(productsData || [])
+
+      // Cargar ubicaciones (id + name)
+      const { data: locationsData, error: locError } = await supabase
+        .from('locations')
+        .select('id, name')
+        .order('name')
+
+      if (locError) throw locError
+      setLocations(locationsData || [])
+
+    } catch (err) {
+      console.error('Error cargando datos:', err)
+      setMessage({ type: 'error', text: 'Error cargando productos y ubicaciones' })
+    } finally {
+      setLoadingData(false)
+    }
+  }
+
+  // Tipos de movimiento (excluyendo 'sale')
   const movementTypes = [
     { type: 'restock', description: '📦 Reabastecimiento (suma stock)', effect: '➕' },
     { type: 'adjustment', description: '✏️ Ajuste (corrección)', effect: '🔄' },
@@ -43,9 +79,12 @@ export default function Movements() {
       if (error) throw error
 
       const selectedType = movementTypes.find(t => t.type === form.movement_type)
+      const productName = products.find(p => p.id === form.product_id)?.name
+      const locationName = locations.find(l => l.id === form.location_id)?.name
+
       setMessage({ 
         type: 'success', 
-        text: `✅ Movimiento registrado: ${selectedType.description}. El inventario se actualizará automáticamente.` 
+        text: `✅ ${selectedType.description} | ${productName} en ${locationName} | Cantidad: ${form.quantity}` 
       })
       
       setForm({ ...form, quantity: '', notes: '' })
@@ -55,6 +94,15 @@ export default function Movements() {
     } finally {
       setLoading(false)
     }
+  }
+
+  if (loadingData) {
+    return (
+      <div style={{ padding: '20px', fontFamily: 'sans-serif' }}>
+        <h1>📝 Registrar Movimiento Manual</h1>
+        <p>Cargando productos y ubicaciones...</p>
+      </div>
+    )
   }
 
   return (
@@ -68,30 +116,42 @@ export default function Movements() {
         marginBottom: '20px',
         borderLeft: '4px solid #2196f3'
       }}>
-        💡 <strong>Nota:</strong> Las ventas (sale) se registran automáticamente desde el sistema de órdenes. Este formulario es para movimientos manuales.
+        💡 <strong>Nota:</strong> Las ventas (sale) se registran automáticamente desde el sistema de órdenes.
       </div>
       
       <form onSubmit={handleSubmit} style={{ maxWidth: '500px' }}>
         <div style={{ marginBottom: '15px' }}>
-          <label>Producto ID (UUID):</label>
-          <input
-            type="text"
+          <label>Producto:</label>
+          <select
             value={form.product_id}
             onChange={(e) => setForm({...form, product_id: e.target.value})}
             style={{ width: '100%', padding: '8px', marginTop: '5px' }}
             required
-          />
+          >
+            <option value="">Selecciona un producto...</option>
+            {products.map(product => (
+              <option key={product.id} value={product.id}>
+                {product.name}
+              </option>
+            ))}
+          </select>
         </div>
 
         <div style={{ marginBottom: '15px' }}>
-          <label>Ubicación ID (UUID):</label>
-          <input
-            type="text"
+          <label>Ubicación:</label>
+          <select
             value={form.location_id}
             onChange={(e) => setForm({...form, location_id: e.target.value})}
             style={{ width: '100%', padding: '8px', marginTop: '5px' }}
             required
-          />
+          >
+            <option value="">Selecciona una ubicación...</option>
+            {locations.map(location => (
+              <option key={location.id} value={location.id}>
+                {location.name}
+              </option>
+            ))}
+          </select>
         </div>
 
         <div style={{ marginBottom: '15px' }}>
