@@ -135,7 +135,7 @@ export default function Dashboard() {
   if (loading) {
     return (
       <div style={{ padding: '20px', fontFamily: 'sans-serif' }}>
-        <h1>🏪 S2POS - McAllen</h1>
+        <h1>🏪 S2POS - Herbax Estados Unidos</h1>
         <p>Cargando datos...</p>
       </div>
     )
@@ -143,7 +143,7 @@ export default function Dashboard() {
 
   return (
     <div style={{ padding: '20px', fontFamily: 'sans-serif' }}>
-      <h1>🏪 S2POS - McAllen</h1>
+      <h1>🏪 S2POS - Herbax Estados Unidos</h1>
       
       {/* Tarjetas de resumen */}
       <div style={{ 
