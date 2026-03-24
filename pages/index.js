@@ -11,9 +11,8 @@ export default function Dashboard() {
     movementsToday: 0
   })
   const [criticalAlertsList, setCriticalAlertsList] = useState([])
-  const [recentMovements, setRecentMovements] = useState([])
+  const [movementsSummary, setMovementsSummary] = useState([])
   const [loading, setLoading] = useState(true)
-  const [locationName, setLocationName] = useState('McAllen')
 
   useEffect(() => {
     fetchDashboardData()
@@ -29,18 +28,16 @@ export default function Dashboard() {
         .eq('name', 'McAllen')
         .single()
       
-      if (location) setLocationName(location.name)
-
       // 1. Total de productos y stock en McAllen
       const { data: inventory } = await supabase
         .from('inventory_totals')
         .select('total_stock')
-        .eq('location_id', 'e6564cd8-6787-42be-8fd6-7de5fac125aa') // UUID de McAllen
+        .eq('location_id', 'e6564cd8-6787-42be-8fd6-7de5fac125aa')
 
       const totalStock = inventory?.reduce((sum, item) => sum + (item.total_stock || 0), 0) || 0
       const totalProducts = inventory?.length || 0
 
-      // 2. Alertas desde la vista restock_alerts (filtradas por McAllen)
+      // 2. Alertas desde la vista restock_alerts
       const { data: alerts } = await supabase
         .from('restock_alerts')
         .select('*')
@@ -48,7 +45,6 @@ export default function Dashboard() {
 
       const activeAlerts = alerts?.length || 0
       const criticalAlerts = alerts?.filter(a => a.alert_level === 'CRITICAL' || a.alert_level === 'VERY LOW').length || 0
-      
       const criticalOnly = alerts?.filter(a => a.alert_level === 'CRITICAL' || a.alert_level === 'VERY LOW').slice(0, 5) || []
       setCriticalAlertsList(criticalOnly)
 
@@ -58,36 +54,49 @@ export default function Dashboard() {
       const tomorrow = new Date(today)
       tomorrow.setDate(tomorrow.getDate() + 1)
 
-      const { data: movements } = await supabase
+      const { data: movementsToday } = await supabase
         .from('inventory_movements')
         .select('id')
         .eq('location_id', 'e6564cd8-6787-42be-8fd6-7de5fac125aa')
         .gte('created_at', today.toISOString())
         .lt('created_at', tomorrow.toISOString())
 
-      // 4. Últimos 5 movimientos en McAllen
-      const { data: lastMovements } = await supabase
+      // 4. Resumen de movimientos (últimos 30 días)
+      const thirtyDaysAgo = new Date()
+      thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30)
+      
+      const { data: movements30 } = await supabase
         .from('inventory_movements')
-        .select(`
-          id,
-          quantity,
-          movement_type,
-          created_at,
-          products (name),
-          locations (name)
-        `)
+        .select('movement_type, quantity')
         .eq('location_id', 'e6564cd8-6787-42be-8fd6-7de5fac125aa')
-        .order('created_at', { ascending: false })
-        .limit(5)
+        .gte('created_at', thirtyDaysAgo.toISOString())
+
+      // Agrupar por tipo de movimiento
+      const summaryMap = new Map()
+      movements30?.forEach(mov => {
+        const type = mov.movement_type
+        const qty = Math.abs(mov.quantity)
+        
+        if (!summaryMap.has(type)) {
+          summaryMap.set(type, { type, total: 0, count: 0 })
+        }
+        const current = summaryMap.get(type)
+        current.total += qty
+        current.count += 1
+      })
+
+      const summaryList = Array.from(summaryMap.values())
+      // Ordenar por total de unidades (mayor primero)
+      summaryList.sort((a, b) => b.total - a.total)
+      setMovementsSummary(summaryList)
 
       setSummary({
         totalProducts,
         totalStock,
         activeAlerts,
         criticalAlerts,
-        movementsToday: movements?.length || 0
+        movementsToday: movementsToday?.length || 0
       })
-      setRecentMovements(lastMovements || [])
 
     } catch (err) {
       console.error('Error cargando dashboard:', err)
@@ -105,6 +114,15 @@ export default function Dashboard() {
     return icons[type] || '📋'
   }
 
+  const getMovementName = (type) => {
+    const names = {
+      sale: 'Ventas', promo: 'Promociones', employee: 'Empleados', expired: 'Vencidos',
+      damaged: 'Dañados', adjustment: 'Ajustes', restock: 'Reabastecimientos',
+      transfer_in: 'Transferencias (entrada)', transfer_out: 'Transferencias (salida)'
+    }
+    return names[type] || type
+  }
+
   const getAlertColor = (level) => {
     switch(level) {
       case 'CRITICAL': return '#d32f2f'
@@ -117,7 +135,7 @@ export default function Dashboard() {
   if (loading) {
     return (
       <div style={{ padding: '20px', fontFamily: 'sans-serif' }}>
-        <h1>🏪 S2POS - {locationName}</h1>
+        <h1>🏪 S2POS - McAllen</h1>
         <p>Cargando datos...</p>
       </div>
     )
@@ -125,12 +143,12 @@ export default function Dashboard() {
 
   return (
     <div style={{ padding: '20px', fontFamily: 'sans-serif' }}>
-      <h1>🏪 S2POS - {locationName}</h1>
+      <h1>🏪 S2POS - McAllen</h1>
       
       {/* Tarjetas de resumen */}
       <div style={{ 
         display: 'grid', 
-        gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', 
+        gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', 
         gap: '15px',
         marginBottom: '30px'
       }}>
@@ -198,109 +216,107 @@ export default function Dashboard() {
       {/* Accesos rápidos */}
       <div style={{ marginBottom: '30px' }}>
         <h2>🚀 Accesos Rápidos</h2>
-        <div style={{ display: 'flex', gap: '15px', flexWrap: 'wrap' }}>
+        <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
           <Link href="/inventory" style={{ 
             backgroundColor: '#0070f3', 
             color: 'white', 
-            padding: '10px 20px', 
+            padding: '10px 18px', 
             borderRadius: '8px', 
             textDecoration: 'none',
-            display: 'inline-block'
+            fontSize: '14px'
           }}>
-            📦 Ver Inventario
+            📦 Inventario
           </Link>
           <Link href="/alerts" style={{ 
             backgroundColor: '#ff9800', 
             color: 'white', 
-            padding: '10px 20px', 
+            padding: '10px 18px', 
             borderRadius: '8px', 
-            textDecoration: 'none'
+            textDecoration: 'none',
+            fontSize: '14px'
           }}>
-            📊 Dashboard Inventario
+            📊 Alertas
           </Link>
           <Link href="/movements" style={{ 
             backgroundColor: '#4caf50', 
             color: 'white', 
-            padding: '10px 20px', 
+            padding: '10px 18px', 
             borderRadius: '8px', 
-            textDecoration: 'none'
+            textDecoration: 'none',
+            fontSize: '14px'
           }}>
-            📝 Nuevo Movimiento
+            📝 Movimientos
           </Link>
           <Link href="/transfer" style={{ 
             backgroundColor: '#9c27b0', 
             color: 'white', 
-            padding: '10px 20px', 
+            padding: '10px 18px', 
             borderRadius: '8px', 
-            textDecoration: 'none'
+            textDecoration: 'none',
+            fontSize: '14px'
           }}>
             🚚 Transferencias
           </Link>
           <Link href="/movements-history" style={{ 
             backgroundColor: '#607d8b', 
             color: 'white', 
-            padding: '10px 20px', 
+            padding: '10px 18px', 
             borderRadius: '8px', 
-            textDecoration: 'none'
+            textDecoration: 'none',
+            fontSize: '14px'
           }}>
             📜 Historial
+          </Link>
+          <Link href="/batches" style={{ 
+            backgroundColor: '#795548', 
+            color: 'white', 
+            padding: '10px 18px', 
+            borderRadius: '8px', 
+            textDecoration: 'none',
+            fontSize: '14px'
+          }}>
+            📦 Lotes
+          </Link>
+          <Link href="/fifo-analysis" style={{ 
+            backgroundColor: '#f44336', 
+            color: 'white', 
+            padding: '10px 18px', 
+            borderRadius: '8px', 
+            textDecoration: 'none',
+            fontSize: '14px'
+          }}>
+            📊 Análisis FIFO
           </Link>
         </div>
       </div>
 
-      {/* Últimos movimientos */}
+      {/* Resumen de movimientos (últimos 30 días) */}
       <div>
-        <h2>📋 Últimos Movimientos</h2>
-        {recentMovements.length === 0 ? (
-          <p>No hay movimientos recientes.</p>
+        <h2>📊 Resumen de Movimientos (últimos 30 días)</h2>
+        {movementsSummary.length === 0 ? (
+          <p>No hay movimientos en los últimos 30 días.</p>
         ) : (
-          <table border="1" cellPadding="8" style={{ borderCollapse: 'collapse', width: '100%' }}>
-            <thead>
-              <tr style={{ backgroundColor: '#f0f0f0' }}>
-                <th>Fecha</th>
-                <th>Producto</th>
-                <th>Tipo</th>
-                <th>Cantidad</th>
-                <th>Notas</th>
-                </tr>
-            </thead>
-            <tbody>
-              {recentMovements.map((mov) => (
-                <tr key={mov.id}>
-                  <td style={{ whiteSpace: 'nowrap' }}>
-                    {new Date(mov.created_at).toLocaleDateString('es-MX')}
-                    <br/>
-                    <span style={{ fontSize: '11px', color: '#666' }}>
-                      {new Date(mov.created_at).toLocaleTimeString('es-MX')}
-                    </span>
-                   </td>
-                  <td>{mov.products?.name || mov.product_id?.slice(0, 8)}</td>
-                  <td>
-                    <span style={{ 
-                      backgroundColor: mov.movement_type === 'sale' || mov.movement_type === 'transfer_out' ? '#f44336' :
-                                     mov.movement_type === 'restock' || mov.movement_type === 'transfer_in' ? '#4caf50' : '#ff9800',
-                      color: 'white',
-                      padding: '4px 8px',
-                      borderRadius: '12px',
-                      fontSize: '12px',
-                      display: 'inline-block'
-                    }}>
-                      {getMovementIcon(mov.movement_type)} {mov.movement_type}
-                    </span>
-                  </td>
-                  <td style={{ 
-                    textAlign: 'center',
-                    color: mov.movement_type === 'restock' || mov.movement_type === 'transfer_in' ? '#4caf50' : '#f44336',
-                    fontWeight: 'bold'
-                  }}>
-                    {mov.movement_type === 'restock' || mov.movement_type === 'transfer_in' ? `+${mov.quantity}` : 
-                     mov.movement_type === 'sale' || mov.movement_type === 'transfer_out' ? `-${Math.abs(mov.quantity)}` : mov.quantity}
-                  </td>
-                  <td style={{ maxWidth: '200px', fontSize: '12px', color: '#666' }}>-</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+          <div style={{ 
+            display: 'grid', 
+            gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', 
+            gap: '12px'
+          }}>
+            {movementsSummary.map((item) => (
+              <div key={item.type} style={{ 
+                backgroundColor: '#f5f5f5', 
+                padding: '12px', 
+                borderRadius: '8px',
+                borderLeft: `4px solid ${item.type === 'sale' || item.type === 'transfer_out' ? '#f44336' : item.type === 'restock' || item.type === 'transfer_in' ? '#4caf50' : '#ff9800'}`
+              }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
+                  <span style={{ fontSize: '20px' }}>{getMovementIcon(item.type)}</span>
+                  <strong>{getMovementName(item.type)}</strong>
+                </div>
+                <div style={{ fontSize: '24px', fontWeight: 'bold' }}>{item.total}</div>
+                <div style={{ fontSize: '12px', color: '#666' }}>{item.count} movimientos</div>
+              </div>
+            ))}
+          </div>
         )}
       </div>
     </div>
