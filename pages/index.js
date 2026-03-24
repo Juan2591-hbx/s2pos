@@ -287,8 +287,18 @@ export default function Dashboard() {
           }}>
             📊 Análisis FIFO
           </Link>
-        </div>
-      </div>
+    <Link href="/purchase-planning" style={{ 
+      backgroundColor: '#f44336', 
+      color: 'white', 
+      padding: '10px 18px', 
+      borderRadius: '8px', 
+      textDecoration: 'none',
+      fontSize: '14px'
+    }}>
+      📊 Planificar Compras
+    </Link>
+  </div>
+</div>
 
       {/* Resumen de movimientos (últimos 30 días) */}
       <div>
