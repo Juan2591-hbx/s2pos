@@ -9,6 +9,7 @@ export default function MovementsHistory() {
   const [selectedMonth, setSelectedMonth] = useState('')
   const [months, setMonths] = useState([])
   const [expandedGroups, setExpandedGroups] = useState({})
+  const [visibleCount, setVisibleCount] = useState({}) // Para paginación interna
   const [totalSummary, setTotalSummary] = useState({
     ventas: 0,
     empleados: 0,
@@ -20,6 +21,8 @@ export default function MovementsHistory() {
     transferencias_entrada: 0,
     transferencias_salida: 0
   })
+
+  const ITEMS_PER_PAGE = 20 // Mostrar 20 movimientos por vez en el detalle
 
   useEffect(() => {
     generateMonthOptions()
@@ -58,7 +61,6 @@ export default function MovementsHistory() {
       endDate.setMonth(endDate.getMonth() + 1)
       const endDateStr = `${endDate.getFullYear()}-${String(endDate.getMonth() + 1).padStart(2, '0')}-01`
 
-      // Traer todos los movimientos del mes con sus relaciones
       const { data: movements, error } = await supabase
         .from('inventory_movements')
         .select(`
@@ -85,7 +87,6 @@ export default function MovementsHistory() {
         return
       }
 
-      // Para ventas: obtener order_number de orders
       const orderIds = movements
         .filter(m => m.movement_type === 'sale' && m.reference_id)
         .map(m => m.reference_id)
@@ -105,7 +106,6 @@ export default function MovementsHistory() {
         }
       }
 
-      // Agrupar por producto + tipo + ubicación
       const groups = new Map()
       const summary = {
         ventas: 0,
@@ -127,7 +127,6 @@ export default function MovementsHistory() {
         const absQuantity = Math.abs(quantity)
         const key = `${productName}_${type}_${locationName}`
 
-        // Acumular para resumen
         switch(type) {
           case 'sale': summary.ventas += absQuantity; break
           case 'employee': summary.empleados += absQuantity; break
@@ -153,7 +152,6 @@ export default function MovementsHistory() {
         const group = groups.get(key)
         group.totalQuantity += quantity
         
-        // Preparar detalle según tipo
         let detailText = ''
         if (type === 'sale' && mov.reference_id) {
           const orderNumber = orderMap[mov.reference_id] || mov.reference_id?.slice(0, 8)
@@ -174,7 +172,6 @@ export default function MovementsHistory() {
         })
       })
 
-      // Convertir a array y ordenar
       const groupedArray = Array.from(groups.values())
       groupedArray.sort((a, b) => {
         const order = { sale: 1, employee: 2, promo: 3, expired: 4, damaged: 5, adjustment: 6, transfer_out: 7, restock: 8, transfer_in: 9 }
@@ -184,6 +181,13 @@ export default function MovementsHistory() {
       setGroupedData(groupedArray)
       setTotalSummary(summary)
       setExpandedGroups({})
+      
+      // Inicializar visibleCount para cada grupo
+      const initialVisible = {}
+      groupedArray.forEach((group, idx) => {
+        initialVisible[idx] = ITEMS_PER_PAGE
+      })
+      setVisibleCount(initialVisible)
     } catch (err) {
       console.error('Error:', err)
       setError(err.message)
@@ -233,10 +237,17 @@ export default function MovementsHistory() {
     return `${quantity}`
   }
 
-  const toggleExpand = (key) => {
+  const toggleExpand = (groupIdx) => {
     setExpandedGroups(prev => ({
       ...prev,
-      [key]: !prev[key]
+      [groupIdx]: !prev[groupIdx]
+    }))
+  }
+
+  const loadMore = (groupIdx) => {
+    setVisibleCount(prev => ({
+      ...prev,
+      [groupIdx]: prev[groupIdx] + ITEMS_PER_PAGE
     }))
   }
 
@@ -346,7 +357,6 @@ export default function MovementsHistory() {
         💡 Historial agrupado por tipo. Haz clic en "Ver detalles" para expandir.
       </div>
 
-      {/* Selector de mes */}
       <div style={{ marginBottom: '20px' }}>
         <label style={{ fontWeight: 'bold', marginRight: '10px' }}>📅 Mes:</label>
         <select
@@ -382,19 +392,21 @@ export default function MovementsHistory() {
                 <th>Cantidad</th>
                 <th>Ubicación</th>
                 <th></th>
-                </tr>
+                表示
             </thead>
             <tbody>
               {groupedData.map((group, idx) => {
-                const groupKey = `${group.product}_${group.type}_${group.location}`
-                const isExpanded = expandedGroups[groupKey]
+                const isExpanded = expandedGroups[idx]
                 const totalQty = group.totalQuantity
                 const isExit = group.type === 'sale' || group.type === 'employee' || group.type === 'promo' || 
                                group.type === 'expired' || group.type === 'damaged' || group.type === 'transfer_out'
                 const qtyColor = isExit ? '#f44336' : (group.type === 'restock' || group.type === 'transfer_in' ? '#4caf50' : '#ff9800')
+                const visibleMovements = visibleCount[idx] || ITEMS_PER_PAGE
+                const hasMore = group.movements.length > visibleMovements
+                const displayedMovements = group.movements.slice(0, visibleMovements)
                 
                 return (
-                  <Fragment key={groupKey}>
+                  <Fragment key={idx}>
                     <tr style={{ backgroundColor: '#fafafa' }}>
                       <td><strong>{group.product}</strong></td>
                       <td>
@@ -414,7 +426,7 @@ export default function MovementsHistory() {
                       <td>{group.location}</td>
                       <td>
                         <button
-                          onClick={() => toggleExpand(groupKey)}
+                          onClick={() => toggleExpand(idx)}
                           style={{
                             backgroundColor: 'transparent',
                             border: 'none',
@@ -430,28 +442,48 @@ export default function MovementsHistory() {
                     {isExpanded && (
                       <tr>
                         <td colSpan="5" style={{ padding: '0', backgroundColor: '#f9f9f9' }}>
-                          <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-                            <thead>
-                              <tr style={{ backgroundColor: '#e8e8e8' }}>
-                                <th style={{ padding: '8px', textAlign: 'left' }}>Detalle</th>
-                                <th style={{ padding: '8px', textAlign: 'left' }}>Fecha</th>
-                                <th style={{ padding: '8px', textAlign: 'left' }}>Cantidad</th>
-                              </tr>
-                            </thead>
-                            <tbody>
-                              {group.movements.map(mov => (
-                                <tr key={mov.id} style={{ borderBottom: '1px solid #eee' }}>
-                                  <td style={{ padding: '8px' }}>{mov.detail}</td>
-                                  <td style={{ padding: '8px' }}>
-                                    {new Date(mov.date).toLocaleDateString('es-MX')} {new Date(mov.date).toLocaleTimeString('es-MX')}
-                                  </td>
-                                  <td style={{ padding: '8px', fontWeight: 'bold', color: getTypeColor(group.type) }}>
-                                    {getQuantityDisplay(mov.quantity, group.type)}
-                                  </td>
+                          <div style={{ maxHeight: '400px', overflowY: 'auto' }}>
+                            <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                              <thead>
+                                <tr style={{ backgroundColor: '#e8e8e8', position: 'sticky', top: 0 }}>
+                                  <th style={{ padding: '8px', textAlign: 'left' }}>Detalle</th>
+                                  <th style={{ padding: '8px', textAlign: 'left' }}>Fecha</th>
+                                  <th style={{ padding: '8px', textAlign: 'left' }}>Cantidad</th>
                                 </tr>
-                              ))}
-                            </tbody>
-                          </table>
+                              </thead>
+                              <tbody>
+                                {displayedMovements.map(mov => (
+                                  <tr key={mov.id} style={{ borderBottom: '1px solid #eee' }}>
+                                    <td style={{ padding: '8px' }}>{mov.detail}</td>
+                                    <td style={{ padding: '8px' }}>
+                                      {new Date(mov.date).toLocaleDateString('es-MX')} {new Date(mov.date).toLocaleTimeString('es-MX')}
+                                    </td>
+                                    <td style={{ padding: '8px', fontWeight: 'bold', color: getTypeColor(group.type) }}>
+                                      {getQuantityDisplay(mov.quantity, group.type)}
+                                    </td>
+                                  </tr>
+                                ))}
+                              </tbody>
+                            </table>
+                            {hasMore && (
+                              <div style={{ textAlign: 'center', padding: '10px' }}>
+                                <button
+                                  onClick={() => loadMore(idx)}
+                                  style={{
+                                    backgroundColor: '#0070f3',
+                                    color: 'white',
+                                    border: 'none',
+                                    padding: '6px 12px',
+                                    borderRadius: '5px',
+                                    cursor: 'pointer',
+                                    fontSize: '12px'
+                                  }}
+                                >
+                                  ▼ Ver {Math.min(ITEMS_PER_PAGE, group.movements.length - visibleMovements)} movimientos más
+                                </button>
+                              </div>
+                            )}
+                          </div>
                         </td>
                       </tr>
                     )}
