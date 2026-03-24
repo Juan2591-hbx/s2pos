@@ -25,7 +25,6 @@ export default function PurchasePlanning() {
 
   async function fetchLocations() {
     try {
-      // Solo warehouses pueden hacer órdenes de compra
       const { data, error } = await supabase
         .from('locations')
         .select('id, name, type, country')
@@ -55,6 +54,7 @@ export default function PurchasePlanning() {
       if (locError) throw locError
       setLocationName(locationData.name)
 
+      // Lead time según país
       let leadTimeValue = 6.5
       switch (locationData.country) {
         case 'México':
@@ -79,8 +79,7 @@ export default function PurchasePlanning() {
           products (
             id,
             name,
-            sku,
-            lead_time_months
+            sku
           )
         `)
         .eq('location_id', selectedLocation)
@@ -111,7 +110,7 @@ export default function PurchasePlanning() {
         const product = item.products
         const stock = item.total_stock
         const avgMonthly = avgMap.get(item.product_id) || 0
-        const productLeadTime = product?.lead_time_months || leadTimeValue
+        const productLeadTime = leadTimeValue
 
         let mesesInventario = null
         let puntoReorden = null
@@ -138,10 +137,6 @@ export default function PurchasePlanning() {
             estadoTexto = '🟢 OK'
             estadoColor = '#4caf50'
           }
-        } else {
-          mesesInventario = null
-          puntoReorden = null
-          diferencia = null
         }
 
         return {
@@ -174,8 +169,7 @@ export default function PurchasePlanning() {
     }
   }
 
-  const getLeadTimeDisplay = (leadTime, productLeadTime) => {
-    if (productLeadTime > 0) return `${productLeadTime} meses`
+  const getLeadTimeDisplay = (leadTime) => {
     return `${leadTime} meses (por país)`
   }
 
@@ -292,7 +286,7 @@ export default function PurchasePlanning() {
         marginBottom: '20px',
         borderLeft: '4px solid #2196f3'
       }}>
-        💡 <strong>Punto de Reorden:</strong> Lead Time + Stock Seguridad (1 mes). Solo bodegas principales (warehouse) pueden generar órdenes de compra.
+        💡 <strong>Punto de Reorden:</strong> Lead Time por país + Stock Seguridad (1 mes). Solo bodegas principales (warehouse) pueden generar órdenes de compra.
       </div>
 
       <div style={{ marginBottom: '20px' }}>
@@ -386,7 +380,7 @@ export default function PurchasePlanning() {
                     {product.mesesInventario !== null ? `${product.mesesInventario.toFixed(1)} meses` : '-'}
                   </td>
                   <td style={{ textAlign: 'center' }}>
-                    {getLeadTimeDisplay(leadTime, product.leadTime)}
+                    {getLeadTimeDisplay(product.leadTime)}
                   </td>
                   <td style={{ textAlign: 'center' }}>
                     {product.puntoReorden !== null ? `${product.puntoReorden.toFixed(1)} meses` : '-'}
