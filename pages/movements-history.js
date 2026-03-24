@@ -4,9 +4,11 @@ import Link from 'next/link'
 
 export default function MovementsHistory() {
   const [groupedData, setGroupedData] = useState([])
+  const [filteredData, setFilteredData] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
   const [selectedMonth, setSelectedMonth] = useState('')
+  const [selectedType, setSelectedType] = useState('all')
   const [months, setMonths] = useState([])
   const [expandedGroups, setExpandedGroups] = useState({})
   const [visibleCount, setVisibleCount] = useState({})
@@ -24,6 +26,20 @@ export default function MovementsHistory() {
 
   const ITEMS_PER_PAGE = 20
 
+  // Tipos de movimiento para el filtro
+  const movementTypes = [
+    { value: 'all', label: '📋 Todos los tipos' },
+    { value: 'sale', label: '💰 Ventas' },
+    { value: 'employee', label: '👥 Empleados' },
+    { value: 'promo', label: '🎁 Promociones' },
+    { value: 'expired', label: '⏰ Vencidos' },
+    { value: 'damaged', label: '🔨 Dañados' },
+    { value: 'adjustment', label: '✏️ Ajustes' },
+    { value: 'restock', label: '📦 Reabastecimientos' },
+    { value: 'transfer_in', label: '🚚 Transferencias (entrada)' },
+    { value: 'transfer_out', label: '🚚 Transferencias (salida)' }
+  ]
+
   useEffect(() => {
     generateMonthOptions()
   }, [])
@@ -33,6 +49,11 @@ export default function MovementsHistory() {
       fetchMovements()
     }
   }, [selectedMonth])
+
+  // Aplicar filtro cuando cambia groupedData o selectedType
+  useEffect(() => {
+    applyFilter()
+  }, [groupedData, selectedType])
 
   const generateMonthOptions = () => {
     const options = []
@@ -50,6 +71,47 @@ export default function MovementsHistory() {
     
     setMonths(options)
     setSelectedMonth(options[0].value)
+  }
+
+  const applyFilter = () => {
+    if (selectedType === 'all') {
+      setFilteredData(groupedData)
+      // Calcular totales con todos los datos
+      const allSummary = groupedData.reduce((acc, group) => {
+        switch(group.type) {
+          case 'sale': acc.ventas += Math.abs(group.totalQuantity); break
+          case 'employee': acc.empleados += Math.abs(group.totalQuantity); break
+          case 'promo': acc.promociones += Math.abs(group.totalQuantity); break
+          case 'expired': acc.vencidos += Math.abs(group.totalQuantity); break
+          case 'damaged': acc.dañados += Math.abs(group.totalQuantity); break
+          case 'adjustment': acc.ajustes += Math.abs(group.totalQuantity); break
+          case 'restock': acc.reabastecimientos += Math.abs(group.totalQuantity); break
+          case 'transfer_in': acc.transferencias_entrada += Math.abs(group.totalQuantity); break
+          case 'transfer_out': acc.transferencias_salida += Math.abs(group.totalQuantity); break
+        }
+        return acc
+      }, { ventas: 0, empleados: 0, promociones: 0, vencidos: 0, dañados: 0, ajustes: 0, reabastecimientos: 0, transferencias_entrada: 0, transferencias_salida: 0 })
+      setTotalSummary(allSummary)
+    } else {
+      const filtered = groupedData.filter(group => group.type === selectedType)
+      setFilteredData(filtered)
+      // Calcular totales solo del tipo filtrado
+      const filteredSummary = filtered.reduce((acc, group) => {
+        switch(group.type) {
+          case 'sale': acc.ventas += Math.abs(group.totalQuantity); break
+          case 'employee': acc.empleados += Math.abs(group.totalQuantity); break
+          case 'promo': acc.promociones += Math.abs(group.totalQuantity); break
+          case 'expired': acc.vencidos += Math.abs(group.totalQuantity); break
+          case 'damaged': acc.dañados += Math.abs(group.totalQuantity); break
+          case 'adjustment': acc.ajustes += Math.abs(group.totalQuantity); break
+          case 'restock': acc.reabastecimientos += Math.abs(group.totalQuantity); break
+          case 'transfer_in': acc.transferencias_entrada += Math.abs(group.totalQuantity); break
+          case 'transfer_out': acc.transferencias_salida += Math.abs(group.totalQuantity); break
+        }
+        return acc
+      }, { ventas: 0, empleados: 0, promociones: 0, vencidos: 0, dañados: 0, ajustes: 0, reabastecimientos: 0, transferencias_entrada: 0, transferencias_salida: 0 })
+      setTotalSummary(filteredSummary)
+    }
   }
 
   async function fetchMovements() {
@@ -107,37 +169,13 @@ export default function MovementsHistory() {
       }
 
       const groups = new Map()
-      const summary = {
-        ventas: 0,
-        empleados: 0,
-        promociones: 0,
-        vencidos: 0,
-        dañados: 0,
-        ajustes: 0,
-        reabastecimientos: 0,
-        transferencias_entrada: 0,
-        transferencias_salida: 0
-      }
 
       movements.forEach(mov => {
         const productName = mov.products?.name || mov.product_id?.slice(0, 8)
         const locationName = mov.locations?.name || mov.location_id?.slice(0, 8)
         const type = mov.movement_type
         const quantity = mov.quantity
-        const absQuantity = Math.abs(quantity)
         const key = `${productName}_${type}_${locationName}`
-
-        switch(type) {
-          case 'sale': summary.ventas += absQuantity; break
-          case 'employee': summary.empleados += absQuantity; break
-          case 'promo': summary.promociones += absQuantity; break
-          case 'expired': summary.vencidos += absQuantity; break
-          case 'damaged': summary.dañados += absQuantity; break
-          case 'adjustment': summary.ajustes += absQuantity; break
-          case 'restock': summary.reabastecimientos += absQuantity; break
-          case 'transfer_in': summary.transferencias_entrada += absQuantity; break
-          case 'transfer_out': summary.transferencias_salida += absQuantity; break
-        }
 
         if (!groups.has(key)) {
           groups.set(key, {
@@ -179,7 +217,6 @@ export default function MovementsHistory() {
       })
 
       setGroupedData(groupedArray)
-      setTotalSummary(summary)
       setExpandedGroups({})
       
       const initialVisible = {}
@@ -356,22 +393,46 @@ export default function MovementsHistory() {
         💡 Historial agrupado por tipo. Haz clic en "Ver detalles" para expandir.
       </div>
 
-      <div style={{ marginBottom: '20px' }}>
-        <label style={{ fontWeight: 'bold', marginRight: '10px' }}>📅 Mes:</label>
-        <select
-          value={selectedMonth}
-          onChange={(e) => setSelectedMonth(e.target.value)}
-          style={{ padding: '8px', borderRadius: '5px', border: '1px solid #ccc' }}
-        >
-          {months.map(month => (
-            <option key={month.value} value={month.value}>
-              {month.label}
-            </option>
-          ))}
-        </select>
+      {/* Filtros: Mes y Tipo */}
+      <div style={{ 
+        marginBottom: '20px', 
+        display: 'flex', 
+        gap: '20px', 
+        alignItems: 'center',
+        flexWrap: 'wrap'
+      }}>
+        <div>
+          <label style={{ fontWeight: 'bold', marginRight: '10px' }}>📅 Mes:</label>
+          <select
+            value={selectedMonth}
+            onChange={(e) => setSelectedMonth(e.target.value)}
+            style={{ padding: '8px', borderRadius: '5px', border: '1px solid #ccc' }}
+          >
+            {months.map(month => (
+              <option key={month.value} value={month.value}>
+                {month.label}
+              </option>
+            ))}
+          </select>
+        </div>
+        
+        <div>
+          <label style={{ fontWeight: 'bold', marginRight: '10px' }}>🔍 Tipo:</label>
+          <select
+            value={selectedType}
+            onChange={(e) => setSelectedType(e.target.value)}
+            style={{ padding: '8px', borderRadius: '5px', border: '1px solid #ccc' }}
+          >
+            {movementTypes.map(type => (
+              <option key={type.value} value={type.value}>
+                {type.label}
+              </option>
+            ))}
+          </select>
+        </div>
       </div>
 
-      {groupedData.length === 0 ? (
+      {filteredData.length === 0 ? (
         <div style={{ 
           backgroundColor: '#fff3e0', 
           padding: '20px', 
@@ -379,7 +440,7 @@ export default function MovementsHistory() {
           textAlign: 'center',
           color: '#ff9800'
         }}>
-          No hay movimientos registrados en {selectedMonthLabel}.
+          No hay movimientos {selectedType !== 'all' ? `de tipo "${movementTypes.find(t => t.value === selectedType)?.label}" ` : ''}en {selectedMonthLabel}.
         </div>
       ) : (
         <>
@@ -394,7 +455,7 @@ export default function MovementsHistory() {
               </tr>
             </thead>
             <tbody>
-              {groupedData.map((group, idx) => {
+              {filteredData.map((group, idx) => {
                 const isExpanded = expandedGroups[idx]
                 const totalQty = group.totalQuantity
                 const isExit = group.type === 'sale' || group.type === 'employee' || group.type === 'promo' || 
