@@ -339,8 +339,8 @@ export default function FIFOAnalysis() {
             <strong>📋 Leyenda:</strong>
             <div style={{ display: 'flex', gap: '20px', flexWrap: 'wrap', marginTop: '8px' }}>
               <span>🟢 <span style={{ color: '#4caf50' }}>OK</span> - Alcanza a vender antes de caducar</span>
-              <span>🟡 <span style={{ color: '#ff9800' }}>Atención</span> - Justo, margen ≤ 2 meses</span>
-              <span>🔴 <span style={{ color: '#f44336' }}>Riesgo</span> - No alcanza a vender (déficit > 2 meses)</span>
+              <span>🟡 <span style={{ color: '#ff9800' }}>Atención</span> - Justo, margen menor o igual a 2 meses</span>
+              <span>🔴 <span style={{ color: '#f44336' }}>Riesgo</span> - No alcanza a vender (déficit mayor a 2 meses)</span>
               <span>⚪ <span style={{ color: '#9e9e9e' }}>Sin promedio</span> - Configurar promedio mensual</span>
             </div>
           </div>
