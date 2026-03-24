@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '../lib/supabase'
+import Link from 'next/link'
 
 export default function Inventory() {
   const [data, setData] = useState([])
@@ -26,7 +27,7 @@ export default function Inventory() {
         return
       }
 
-      // 2. Traer productos (igual que ubicaciones)
+      // 2. Traer productos
       const { data: products, error: prodError } = await supabase
         .from('products')
         .select('id, name')
@@ -34,7 +35,7 @@ export default function Inventory() {
       if (prodError) throw prodError
       console.log('Productos:', products)
 
-      // 3. Traer ubicaciones (ya funcionaba)
+      // 3. Traer ubicaciones
       const { data: locations, error: locError } = await supabase
         .from('locations')
         .select('id, name')
@@ -99,6 +100,24 @@ export default function Inventory() {
   return (
     <div style={{ padding: '20px', fontFamily: 'sans-serif' }}>
       <h1>📦 Inventario S2POS</h1>
+      
+      {/* Botón de Dashboard */}
+      <div style={{ 
+        display: 'flex', 
+        justifyContent: 'flex-end', 
+        marginBottom: '20px'
+      }}>
+        <Link href="/" style={{ 
+          backgroundColor: '#0070f3', 
+          color: 'white', 
+          padding: '8px 16px', 
+          borderRadius: '5px', 
+          textDecoration: 'none',
+          fontSize: '14px'
+        }}>
+          Dashboard →
+        </Link>
+      </div>
       
       {data.length === 0 ? (
         <p>No hay productos en el inventario.</p>
