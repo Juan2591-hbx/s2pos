@@ -25,7 +25,7 @@ export default function Dashboard() {
       const { data: location } = await supabase
         .from('locations')
         .select('name')
-        .eq('name', 'McAllen')
+        .eq('name', 'Herbax Estados Unidos')
         .single()
       
       // 1. Total de productos y stock en McAllen
@@ -41,7 +41,7 @@ export default function Dashboard() {
       const { data: alerts } = await supabase
         .from('restock_alerts')
         .select('*')
-        .eq('location', 'McAllen')
+        .eq('location', 'Herbax Estados Unidos')
 
       const activeAlerts = alerts?.length || 0
       const criticalAlerts = alerts?.filter(a => a.alert_level === 'CRITICAL' || a.alert_level === 'VERY LOW').length || 0
