@@ -9,7 +9,7 @@ export default function MovementsHistory() {
   const [selectedMonth, setSelectedMonth] = useState('')
   const [months, setMonths] = useState([])
   const [expandedGroups, setExpandedGroups] = useState({})
-  const [visibleCount, setVisibleCount] = useState({}) // Para paginación interna
+  const [visibleCount, setVisibleCount] = useState({})
   const [totalSummary, setTotalSummary] = useState({
     ventas: 0,
     empleados: 0,
@@ -22,7 +22,7 @@ export default function MovementsHistory() {
     transferencias_salida: 0
   })
 
-  const ITEMS_PER_PAGE = 20 // Mostrar 20 movimientos por vez en el detalle
+  const ITEMS_PER_PAGE = 20
 
   useEffect(() => {
     generateMonthOptions()
@@ -182,7 +182,6 @@ export default function MovementsHistory() {
       setTotalSummary(summary)
       setExpandedGroups({})
       
-      // Inicializar visibleCount para cada grupo
       const initialVisible = {}
       groupedArray.forEach((group, idx) => {
         initialVisible[idx] = ITEMS_PER_PAGE
@@ -392,7 +391,7 @@ export default function MovementsHistory() {
                 <th>Cantidad</th>
                 <th>Ubicación</th>
                 <th></th>
-                表示
+              </tr>
             </thead>
             <tbody>
               {groupedData.map((group, idx) => {
