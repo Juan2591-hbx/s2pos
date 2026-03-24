@@ -122,7 +122,7 @@ export default function PurchasePlanning() {
         if (avgMonthly > 0) {
           mesesInventario = stock / avgMonthly
           puntoReorden = productLeadTime + SAFETY_STOCK_MONTHS
-          diferencia = puntoReorden - mesesInventario
+          diferencia = mesesInventario - puntoReorden
 
           if (diferencia <= 0) {
             estado = 'urgente'
