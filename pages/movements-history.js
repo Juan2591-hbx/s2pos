@@ -469,7 +469,7 @@ export default function MovementsHistory() {
                 <th>Cantidad</th>
                 <th>Ubicación</th>
                 <th></th>
-              </tr>
+               </tr>
             </thead>
             <tbody>
               {filteredData.map((group, idx) => {
@@ -486,7 +486,7 @@ export default function MovementsHistory() {
                 return (
                   <Fragment key={idx}>
                     <tr style={{ backgroundColor: '#fafafa' }}>
-                      <td><strong>{group.product}</strong><\/td>
+                      <td><strong>{group.product}</strong></td>
                       <td>
                         <span style={{ 
                           backgroundColor: getTypeColor(group.type),
@@ -497,12 +497,12 @@ export default function MovementsHistory() {
                         }}>
                           {getTypeName(group.type)}
                         </span>
-                      <\/td>
+                      </td>
                       <td style={{ textAlign: 'center', fontWeight: 'bold', color: qtyColor }}>
                         {getQuantityDisplay(totalQty, group.type)}
-                      <\/td>
-                      日上午{group.location}<\/td>
-                       <td>
+                      </td>
+                      <td>{group.location}</td>
+                      <td>
                         <button
                           onClick={() => toggleExpand(idx)}
                           style={{
@@ -515,8 +515,8 @@ export default function MovementsHistory() {
                         >
                           {isExpanded ? '▲ Ocultar detalles' : `▼ Ver detalles (${group.movements.length} movimientos)`}
                         </button>
-                       <\/td>
-                    <\/tr>
+                      </td>
+                    </tr>
                     {isExpanded && (
                       <tr>
                         <td colSpan="5" style={{ padding: '0', backgroundColor: '#f9f9f9' }}>
@@ -532,17 +532,17 @@ export default function MovementsHistory() {
                               <tbody>
                                 {displayedMovements.map(mov => (
                                   <tr key={mov.id} style={{ borderBottom: '1px solid #eee' }}>
-                                    <td style={{ padding: '8px' }}>{mov.detail}<\/td>
+                                    <td style={{ padding: '8px' }}>{mov.detail}</td>
                                     <td style={{ padding: '8px' }}>
                                       {new Date(mov.date).toLocaleDateString('es-MX')} {new Date(mov.date).toLocaleTimeString('es-MX')}
-                                    <\/td>
+                                    </td>
                                     <td style={{ padding: '8px', fontWeight: 'bold', color: getTypeColor(group.type) }}>
                                       {getQuantityDisplay(mov.quantity, group.type)}
-                                    <\/td>
+                                    </td>
                                   </tr>
                                 ))}
                               </tbody>
-                            <\/table>
+                            </table>
                             {hasMore && (
                               <div style={{ textAlign: 'center', padding: '10px' }}>
                                 <button
@@ -562,14 +562,14 @@ export default function MovementsHistory() {
                               </div>
                             )}
                           </div>
-                        <\/td>
-                      <\/tr>
+                        </td>
+                      </tr>
                     )}
-                  <\/Fragment>
+                  </Fragment>
                 )
               })}
             </tbody>
-          <\/table>
+          </table>
 
           <div style={{ 
             marginTop: '20px', 
