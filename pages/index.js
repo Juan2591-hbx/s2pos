@@ -25,7 +25,7 @@ export default function Dashboard() {
       const { data: location } = await supabase
         .from('locations')
         .select('name')
-        .eq('name', 'Herbax Estados Unidos')
+        .eq('name', 'McAllen')
         .single()
       
       // 1. Total de productos y stock en McAllen
@@ -41,7 +41,7 @@ export default function Dashboard() {
       const { data: alerts } = await supabase
         .from('restock_alerts')
         .select('*')
-        .eq('location', 'Herbax Estados Unidos')
+        .eq('location', 'McAllen')
 
       const activeAlerts = alerts?.length || 0
       const criticalAlerts = alerts?.filter(a => a.alert_level === 'CRITICAL' || a.alert_level === 'VERY LOW').length || 0
@@ -107,18 +107,34 @@ export default function Dashboard() {
 
   const getMovementIcon = (type) => {
     const icons = {
-      sale: '💰', promo: '🎁', employee: '👥', expired: '⏰',
-      damaged: '🔨', adjustment: '✏️', restock: '📦',
-      transfer_in: '🚚⬅️', transfer_out: '🚚➡️'
+      sale: '💰',
+      promo: '🎁',
+      employee: '👥',
+      expired: '⏰',
+      damaged: '🔨',
+      adjustment: '✏️',
+      adjustment_pos: '✏️',
+      adjustment_neg: '✏️',
+      restock: '📦',
+      transfer_in: '🚚⬅️',
+      transfer_out: '🚚➡️'
     }
     return icons[type] || '📋'
   }
 
   const getMovementName = (type) => {
     const names = {
-      sale: 'Ventas', promo: 'Promociones', employee: 'Empleados', expired: 'Vencidos',
-      damaged: 'Dañados', adjustment: 'Ajustes', restock: 'Reabastecimientos',
-      transfer_in: 'Transferencias (entrada)', transfer_out: 'Transferencias (salida)'
+      sale: 'Ventas',
+      promo: 'Promociones',
+      employee: 'Empleados',
+      expired: 'Vencidos',
+      damaged: 'Dañados',
+      adjustment: 'Ajustes',
+      adjustment_pos: 'Ajustes Positivos',
+      adjustment_neg: 'Ajustes Negativos',
+      restock: 'Reabastecimientos',
+      transfer_in: 'Transferencias (entrada)',
+      transfer_out: 'Transferencias (salida)'
     }
     return names[type] || type
   }
@@ -135,7 +151,7 @@ export default function Dashboard() {
   if (loading) {
     return (
       <div style={{ padding: '20px', fontFamily: 'sans-serif' }}>
-        <h1>🏪 S2POS - Herbax Estados Unidos</h1>
+        <h1>🏪 S2POS - McAllen</h1>
         <p>Cargando datos...</p>
       </div>
     )
@@ -143,7 +159,7 @@ export default function Dashboard() {
 
   return (
     <div style={{ padding: '20px', fontFamily: 'sans-serif' }}>
-      <h1>🏪 S2POS - Herbax Estados Unidos</h1>
+      <h1>🏪 S2POS - McAllen</h1>
       
       {/* Tarjetas de resumen */}
       <div style={{ 
@@ -287,18 +303,18 @@ export default function Dashboard() {
           }}>
             📊 Análisis FIFO
           </Link>
-    <Link href="/purchase-planning" style={{ 
-      backgroundColor: '#f44336', 
-      color: 'white', 
-      padding: '10px 18px', 
-      borderRadius: '8px', 
-      textDecoration: 'none',
-      fontSize: '14px'
-    }}>
-      📊 Planificar Compras
-    </Link>
-  </div>
-</div>
+          <Link href="/purchase-planning" style={{ 
+            backgroundColor: '#f44336', 
+            color: 'white', 
+            padding: '10px 18px', 
+            borderRadius: '8px', 
+            textDecoration: 'none',
+            fontSize: '14px'
+          }}>
+            📊 Planificar Compras
+          </Link>
+        </div>
+      </div>
 
       {/* Resumen de movimientos (últimos 30 días) */}
       <div>
@@ -316,7 +332,11 @@ export default function Dashboard() {
                 backgroundColor: '#f5f5f5', 
                 padding: '12px', 
                 borderRadius: '8px',
-                borderLeft: `4px solid ${item.type === 'sale' || item.type === 'transfer_out' ? '#f44336' : item.type === 'restock' || item.type === 'transfer_in' ? '#4caf50' : '#ff9800'}`
+                borderLeft: `4px solid ${
+                  item.type === 'sale' || item.type === 'transfer_out' || item.type === 'adjustment_neg' ? '#f44336' : 
+                  item.type === 'restock' || item.type === 'transfer_in' || item.type === 'adjustment_pos' ? '#4caf50' : 
+                  '#ff9800'
+                }`
               }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
                   <span style={{ fontSize: '20px' }}>{getMovementIcon(item.type)}</span>
