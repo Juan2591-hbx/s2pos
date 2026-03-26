@@ -8,15 +8,16 @@ export default function Movements() {
   const [selectedLocationType, setSelectedLocationType] = useState('')
   const [products, setProducts] = useState([])
   const [quantities, setQuantities] = useState({})
-  const [movementType, setMovementType] = useState('adjustment')
+  const [movementType, setMovementType] = useState('adjustment_pos')
   const [notes, setNotes] = useState('')
   const [loading, setLoading] = useState(false)
   const [loadingData, setLoadingData] = useState(true)
   const [message, setMessage] = useState(null)
 
-  // Tipos base para todos (POS puede hacer estos)
+  // Tipos base para POS (todos los que pueden)
   const baseMovementTypes = [
-    { type: 'adjustment', description: '✏️ Ajuste (corrección)', effect: '🔄' },
+    { type: 'adjustment_pos', description: '✏️ Ajuste Positivo (suma stock)', effect: '➕' },
+    { type: 'adjustment_neg', description: '✏️ Ajuste Negativo (resta stock)', effect: '➖' },
     { type: 'employee', description: '👥 Empleado (resta stock)', effect: '➖' },
     { type: 'promo', description: '🎁 Promoción (resta stock)', effect: '➖' },
     { type: 'expired', description: '⏰ Vencido (resta stock)', effect: '➖' },
@@ -40,24 +41,24 @@ export default function Movements() {
   useEffect(() => {
     if (selectedLocationType === 'warehouse' || selectedLocationType === 'hybrid') {
       setMovementTypes([...baseMovementTypes, ...warehouseTypes])
-      // Si el tipo actual no está disponible, resetear a adjustment
+      // Si el tipo actual no está disponible, resetear a adjustment_pos
       const currentTypeAvailable = [...baseMovementTypes, ...warehouseTypes].some(t => t.type === movementType)
       if (!currentTypeAvailable) {
-        setMovementType('adjustment')
+        setMovementType('adjustment_pos')
       }
     } else {
       setMovementTypes(baseMovementTypes)
-      // Si el tipo actual no está disponible, resetear a adjustment
+      // Si el tipo actual no está disponible, resetear a adjustment_pos
       const currentTypeAvailable = baseMovementTypes.some(t => t.type === movementType)
       if (!currentTypeAvailable) {
-        setMovementType('adjustment')
+        setMovementType('adjustment_pos')
       }
     }
   }, [selectedLocationType])
 
   async function fetchLocationsAndProducts() {
     try {
-      // Cargar todas las ubicaciones (incluyendo POS)
+      // Cargar todas las ubicaciones
       const { data: locs } = await supabase
         .from('locations')
         .select('id, name, type')
@@ -123,11 +124,50 @@ export default function Movements() {
   }
 
   const isExitMovement = (type) => {
-    return ['employee', 'promo', 'expired', 'damaged', 'transfer_out'].includes(type)
+    return ['adjustment_neg', 'employee', 'promo', 'expired', 'damaged', 'transfer_out'].includes(type)
   }
 
   const isEntryMovement = (type) => {
-    return ['restock', 'transfer_in'].includes(type)
+    return ['adjustment_pos', 'restock', 'transfer_in'].includes(type)
+  }
+
+  const getEffectText = (type, qty, currentStock) => {
+    if (qty === 0) return '—'
+    
+    if (type === 'adjustment_pos') {
+      return '➕ Suma stock'
+    }
+    if (type === 'adjustment_neg') {
+      if (qty > currentStock) {
+        return '⚠️ Excede stock'
+      }
+      return '➖ Resta stock'
+    }
+    if (isExitMovement(type)) {
+      if (qty > currentStock) {
+        return '⚠️ Excede stock'
+      }
+      return '➖ Resta stock'
+    }
+    if (isEntryMovement(type)) {
+      return '➕ Suma stock'
+    }
+    return '—'
+  }
+
+  const getEffectColor = (type, qty, currentStock) => {
+    if (qty === 0) return '#666'
+    if (type === 'adjustment_pos') return '#4caf50'
+    if (type === 'adjustment_neg') {
+      if (qty > currentStock) return '#ff9800'
+      return '#f44336'
+    }
+    if (isExitMovement(type)) {
+      if (qty > currentStock) return '#ff9800'
+      return '#f44336'
+    }
+    if (isEntryMovement(type)) return '#4caf50'
+    return '#666'
   }
 
   const handleSubmit = async (e) => {
@@ -175,8 +215,11 @@ export default function Movements() {
     try {
       for (const { productId, qty } of movementsToRegister) {
         let finalQuantity = qty
-        if (movementType === 'adjustment') {
-          finalQuantity = qty
+        
+        if (movementType === 'adjustment_pos') {
+          finalQuantity = qty  // positivo
+        } else if (movementType === 'adjustment_neg') {
+          finalQuantity = -qty // negativo
         } else if (isExitMovement(movementType)) {
           finalQuantity = -qty
         } else if (isEntryMovement(movementType)) {
@@ -318,7 +361,7 @@ export default function Movements() {
             </select>
           </div>
           
-          <div style={{ flex: 1, minWidth: '180px' }}>
+          <div style={{ flex: 1, minWidth: '220px' }}>
             <label style={{ fontWeight: 'bold', display: 'block', marginBottom: '5px' }}>🔍 Tipo de Movimiento:</label>
             <select
               value={movementType}
@@ -362,24 +405,8 @@ export default function Movements() {
               {products.map(product => {
                 const currentStock = stockMap[product.id] || 0
                 const qty = quantities[product.id] || 0
-                const isExit = isExitMovement(movementType)
-                const isEntry = isEntryMovement(movementType)
-                const isAdjustment = movementType === 'adjustment'
-                
-                let effectColor = '#666'
-                let effectText = ''
-                if (isExit || (isAdjustment && qty > 0 && qty > currentStock)) {
-                  effectColor = '#f44336'
-                  effectText = '➖ Resta stock'
-                } else if (isEntry || (isAdjustment && qty > 0)) {
-                  effectColor = '#4caf50'
-                  effectText = '➕ Suma stock'
-                } else if (isAdjustment && qty > currentStock) {
-                  effectColor = '#ff9800'
-                  effectText = '⚠️ Excede stock'
-                } else if (qty === 0) {
-                  effectText = '—'
-                }
+                const effectText = getEffectText(movementType, qty, currentStock)
+                const effectColor = getEffectColor(movementType, qty, currentStock)
                 
                 return (
                   <tr key={product.id} style={{ backgroundColor: qty > 0 ? '#f9f9f9' : 'white' }}>
