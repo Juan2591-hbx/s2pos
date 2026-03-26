@@ -191,20 +191,20 @@ export default function MovementsHistory() {
         group.totalQuantity += quantity
         
         let detailText = ''
-        if (type === 'sale' && mov.reference_id) {
-          const orderNumber = orderMap[mov.reference_id] || mov.reference_id?.slice(0, 8)
-          detailText = `Orden ${orderNumber}`
-        } else if (type === 'transfer_in') {
-          detailText = 'Entrada por transferencia'
-        } else if (type === 'transfer_out') {
-          detailText = 'Salida por transferencia'
-        } else if (type === 'adjustment_pos') {
-          detailText = mov.notes || 'Ajuste positivo'
-        } else if (type === 'adjustment_neg') {
-          detailText = mov.notes || 'Ajuste negativo'
-        } else {
-          detailText = mov.notes || 'Sin nota'
-        }
+if (type === 'sale' && mov.reference_id) {
+  const orderNumber = orderMap[mov.reference_id] || mov.reference_id?.slice(0, 8)
+  detailText = `Orden ${orderNumber}`
+} else if (type === 'transfer_in') {
+  detailText = mov.notes || 'Entrada por transferencia'
+} else if (type === 'transfer_out') {
+  detailText = mov.notes || 'Salida por transferencia'
+} else if (type === 'adjustment_pos') {
+  detailText = mov.notes || 'Ajuste positivo'
+} else if (type === 'adjustment_neg') {
+  detailText = mov.notes || 'Ajuste negativo'
+} else {
+  detailText = mov.notes || 'Sin nota'
+}
         
         group.movements.push({
           id: mov.id,
