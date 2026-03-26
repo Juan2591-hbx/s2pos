@@ -18,7 +18,8 @@ export default function MovementsHistory() {
     promociones: 0,
     vencidos: 0,
     dañados: 0,
-    ajustes: 0,
+    ajustes_pos: 0,
+    ajustes_neg: 0,
     reabastecimientos: 0,
     transferencias_entrada: 0,
     transferencias_salida: 0
@@ -30,11 +31,12 @@ export default function MovementsHistory() {
   const movementTypes = [
     { value: 'all', label: '📋 Todos los tipos' },
     { value: 'sale', label: '💰 Ventas' },
+    { value: 'adjustment_pos', label: '✏️ Ajuste Positivo' },
+    { value: 'adjustment_neg', label: '✏️ Ajuste Negativo' },
     { value: 'employee', label: '👥 Empleados' },
     { value: 'promo', label: '🎁 Promociones' },
     { value: 'expired', label: '⏰ Vencidos' },
     { value: 'damaged', label: '🔨 Dañados' },
-    { value: 'adjustment', label: '✏️ Ajustes' },
     { value: 'restock', label: '📦 Reabastecimientos' },
     { value: 'transfer_in', label: '🚚 Transferencias (entrada)' },
     { value: 'transfer_out', label: '🚚 Transferencias (salida)' }
@@ -50,7 +52,6 @@ export default function MovementsHistory() {
     }
   }, [selectedMonth])
 
-  // Aplicar filtro cuando cambia groupedData o selectedType
   useEffect(() => {
     applyFilter()
   }, [groupedData, selectedType])
@@ -76,7 +77,6 @@ export default function MovementsHistory() {
   const applyFilter = () => {
     if (selectedType === 'all') {
       setFilteredData(groupedData)
-      // Calcular totales con todos los datos
       const allSummary = groupedData.reduce((acc, group) => {
         switch(group.type) {
           case 'sale': acc.ventas += Math.abs(group.totalQuantity); break
@@ -84,18 +84,18 @@ export default function MovementsHistory() {
           case 'promo': acc.promociones += Math.abs(group.totalQuantity); break
           case 'expired': acc.vencidos += Math.abs(group.totalQuantity); break
           case 'damaged': acc.dañados += Math.abs(group.totalQuantity); break
-          case 'adjustment': acc.ajustes += Math.abs(group.totalQuantity); break
+          case 'adjustment_pos': acc.ajustes_pos += Math.abs(group.totalQuantity); break
+          case 'adjustment_neg': acc.ajustes_neg += Math.abs(group.totalQuantity); break
           case 'restock': acc.reabastecimientos += Math.abs(group.totalQuantity); break
           case 'transfer_in': acc.transferencias_entrada += Math.abs(group.totalQuantity); break
           case 'transfer_out': acc.transferencias_salida += Math.abs(group.totalQuantity); break
         }
         return acc
-      }, { ventas: 0, empleados: 0, promociones: 0, vencidos: 0, dañados: 0, ajustes: 0, reabastecimientos: 0, transferencias_entrada: 0, transferencias_salida: 0 })
+      }, { ventas: 0, empleados: 0, promociones: 0, vencidos: 0, dañados: 0, ajustes_pos: 0, ajustes_neg: 0, reabastecimientos: 0, transferencias_entrada: 0, transferencias_salida: 0 })
       setTotalSummary(allSummary)
     } else {
       const filtered = groupedData.filter(group => group.type === selectedType)
       setFilteredData(filtered)
-      // Calcular totales solo del tipo filtrado
       const filteredSummary = filtered.reduce((acc, group) => {
         switch(group.type) {
           case 'sale': acc.ventas += Math.abs(group.totalQuantity); break
@@ -103,13 +103,14 @@ export default function MovementsHistory() {
           case 'promo': acc.promociones += Math.abs(group.totalQuantity); break
           case 'expired': acc.vencidos += Math.abs(group.totalQuantity); break
           case 'damaged': acc.dañados += Math.abs(group.totalQuantity); break
-          case 'adjustment': acc.ajustes += Math.abs(group.totalQuantity); break
+          case 'adjustment_pos': acc.ajustes_pos += Math.abs(group.totalQuantity); break
+          case 'adjustment_neg': acc.ajustes_neg += Math.abs(group.totalQuantity); break
           case 'restock': acc.reabastecimientos += Math.abs(group.totalQuantity); break
           case 'transfer_in': acc.transferencias_entrada += Math.abs(group.totalQuantity); break
           case 'transfer_out': acc.transferencias_salida += Math.abs(group.totalQuantity); break
         }
         return acc
-      }, { ventas: 0, empleados: 0, promociones: 0, vencidos: 0, dañados: 0, ajustes: 0, reabastecimientos: 0, transferencias_entrada: 0, transferencias_salida: 0 })
+      }, { ventas: 0, empleados: 0, promociones: 0, vencidos: 0, dañados: 0, ajustes_pos: 0, ajustes_neg: 0, reabastecimientos: 0, transferencias_entrada: 0, transferencias_salida: 0 })
       setTotalSummary(filteredSummary)
     }
   }
@@ -198,6 +199,10 @@ export default function MovementsHistory() {
           detailText = 'Entrada por transferencia'
         } else if (type === 'transfer_out') {
           detailText = 'Salida por transferencia'
+        } else if (type === 'adjustment_pos') {
+          detailText = mov.notes || 'Ajuste positivo'
+        } else if (type === 'adjustment_neg') {
+          detailText = mov.notes || 'Ajuste negativo'
         } else {
           detailText = mov.notes || 'Sin nota'
         }
@@ -212,8 +217,19 @@ export default function MovementsHistory() {
 
       const groupedArray = Array.from(groups.values())
       groupedArray.sort((a, b) => {
-        const order = { sale: 1, employee: 2, promo: 3, expired: 4, damaged: 5, adjustment: 6, transfer_out: 7, restock: 8, transfer_in: 9 }
-        return (order[a.type] || 10) - (order[b.type] || 10)
+        const order = { 
+          sale: 1, 
+          adjustment_pos: 2, 
+          adjustment_neg: 3, 
+          employee: 4, 
+          promo: 5, 
+          expired: 6, 
+          damaged: 7, 
+          transfer_out: 8, 
+          restock: 9, 
+          transfer_in: 10 
+        }
+        return (order[a.type] || 11) - (order[b.type] || 11)
       })
 
       setGroupedData(groupedArray)
@@ -235,11 +251,12 @@ export default function MovementsHistory() {
   const getTypeName = (type) => {
     const names = {
       sale: '💰 Ventas',
+      adjustment_pos: '✏️ Ajuste Positivo',
+      adjustment_neg: '✏️ Ajuste Negativo',
       employee: '👥 Empleados',
       promo: '🎁 Promociones',
       expired: '⏰ Vencidos',
       damaged: '🔨 Dañados',
-      adjustment: '✏️ Ajustes',
       restock: '📦 Reabastecimientos',
       transfer_in: '🚚 Transferencia (entrada)',
       transfer_out: '🚚 Transferencia (salida)'
@@ -249,25 +266,27 @@ export default function MovementsHistory() {
 
   const getTypeColor = (type) => {
     if (type === 'sale' || type === 'employee' || type === 'promo' || 
-        type === 'expired' || type === 'damaged' || type === 'transfer_out') {
-      return '#f44336'
+        type === 'expired' || type === 'damaged' || type === 'transfer_out' ||
+        type === 'adjustment_neg') {
+      return '#f44336'  // rojo (resta)
     }
-    if (type === 'restock' || type === 'transfer_in') {
-      return '#4caf50'
+    if (type === 'restock' || type === 'transfer_in' || type === 'adjustment_pos') {
+      return '#4caf50'  // verde (suma)
     }
-    return '#ff9800'
+    return '#ff9800'  // naranja
   }
 
   const getQuantityDisplay = (quantity, type) => {
     const absQty = Math.abs(quantity)
-    const isEntry = (type === 'restock' || type === 'transfer_in')
+    const isEntry = (type === 'restock' || type === 'transfer_in' || type === 'adjustment_pos')
     const isExit = (type === 'sale' || type === 'employee' || type === 'promo' || 
-                    type === 'expired' || type === 'damaged' || type === 'transfer_out')
+                    type === 'expired' || type === 'damaged' || type === 'transfer_out' ||
+                    type === 'adjustment_neg')
     
-    if (isEntry || (type === 'adjustment' && quantity > 0)) {
+    if (isEntry) {
       return `+ ${absQty}`
     }
-    if (isExit || (type === 'adjustment' && quantity < 0)) {
+    if (isExit) {
       return `- ${absQty}`
     }
     return `${quantity}`
@@ -452,15 +471,16 @@ export default function MovementsHistory() {
                 <th>Cantidad</th>
                 <th>Ubicación</th>
                 <th></th>
-              </tr>
+              表示
             </thead>
             <tbody>
               {filteredData.map((group, idx) => {
                 const isExpanded = expandedGroups[idx]
                 const totalQty = group.totalQuantity
                 const isExit = group.type === 'sale' || group.type === 'employee' || group.type === 'promo' || 
-                               group.type === 'expired' || group.type === 'damaged' || group.type === 'transfer_out'
-                const qtyColor = isExit ? '#f44336' : (group.type === 'restock' || group.type === 'transfer_in' ? '#4caf50' : '#ff9800')
+                               group.type === 'expired' || group.type === 'damaged' || group.type === 'transfer_out' ||
+                               group.type === 'adjustment_neg'
+                const qtyColor = isExit ? '#f44336' : (group.type === 'restock' || group.type === 'transfer_in' || group.type === 'adjustment_pos' ? '#4caf50' : '#ff9800')
                 const visibleMovements = visibleCount[idx] || ITEMS_PER_PAGE
                 const hasMore = group.movements.length > visibleMovements
                 const displayedMovements = group.movements.slice(0, visibleMovements)
@@ -573,7 +593,8 @@ export default function MovementsHistory() {
                 {totalSummary.promociones > 0 && <span>🎁 Promociones: <strong style={{ color: '#f44336' }}>-{totalSummary.promociones}</strong></span>}
                 {totalSummary.vencidos > 0 && <span>⏰ Vencidos: <strong style={{ color: '#f44336' }}>-{totalSummary.vencidos}</strong></span>}
                 {totalSummary.dañados > 0 && <span>🔨 Dañados: <strong style={{ color: '#f44336' }}>-{totalSummary.dañados}</strong></span>}
-                {totalSummary.ajustes > 0 && <span>✏️ Ajustes: <strong style={{ color: '#ff9800' }}>{totalSummary.ajustes}</strong></span>}
+                {totalSummary.ajustes_pos > 0 && <span>✏️ Ajustes Positivos: <strong style={{ color: '#4caf50' }}>+{totalSummary.ajustes_pos}</strong></span>}
+                {totalSummary.ajustes_neg > 0 && <span>✏️ Ajustes Negativos: <strong style={{ color: '#f44336' }}>-{totalSummary.ajustes_neg}</strong></span>}
                 {totalSummary.reabastecimientos > 0 && <span>📦 Reabastecimientos: <strong style={{ color: '#4caf50' }}>+{totalSummary.reabastecimientos}</strong></span>}
                 {totalSummary.transferencias_entrada > 0 && <span>🚚 Transferencias (entrada): <strong style={{ color: '#4caf50' }}>+{totalSummary.transferencias_entrada}</strong></span>}
                 {totalSummary.transferencias_salida > 0 && <span>🚚 Transferencias (salida): <strong style={{ color: '#f44336' }}>-{totalSummary.transferencias_salida}</strong></span>}
@@ -584,14 +605,14 @@ export default function MovementsHistory() {
               <span style={{ 
                 fontSize: '20px', 
                 fontWeight: 'bold',
-                color: (totalSummary.reabastecimientos + totalSummary.transferencias_entrada) - 
+                color: (totalSummary.reabastecimientos + totalSummary.transferencias_entrada + totalSummary.ajustes_pos) - 
                        (totalSummary.ventas + totalSummary.empleados + totalSummary.promociones + 
-                        totalSummary.vencidos + totalSummary.dañados + totalSummary.transferencias_salida) >= 0 
+                        totalSummary.vencidos + totalSummary.dañados + totalSummary.transferencias_salida + totalSummary.ajustes_neg) >= 0 
                         ? '#4caf50' : '#f44336'
               }}>
-                {(totalSummary.reabastecimientos + totalSummary.transferencias_entrada) - 
+                {(totalSummary.reabastecimientos + totalSummary.transferencias_entrada + totalSummary.ajustes_pos) - 
                  (totalSummary.ventas + totalSummary.empleados + totalSummary.promociones + 
-                  totalSummary.vencidos + totalSummary.dañados + totalSummary.transferencias_salida)}
+                  totalSummary.vencidos + totalSummary.dañados + totalSummary.transferencias_salida + totalSummary.ajustes_neg)}
               </span>
             </div>
           </div>
