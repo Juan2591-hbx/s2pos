@@ -4,7 +4,7 @@ import Link from 'next/link'
 
 export default function Transfer() {
   const [locations, setLocations] = useState([])
-  const [eligibleLocations, setEligibleLocations] = useState([])
+  const [sourceLocations, setSourceLocations] = useState([])
   const [products, setProducts] = useState([])
   const [fromLocation, setFromLocation] = useState('')
   const [toLocation, setToLocation] = useState('')
@@ -34,10 +34,11 @@ export default function Transfer() {
 
       setLocations(allLocs || [])
 
-      const eligible = (allLocs || []).filter(
+      // Origen: solo warehouse y hybrid (pueden enviar)
+      const sources = (allLocs || []).filter(
         loc => loc.type === 'warehouse' || loc.type === 'hybrid'
       )
-      setEligibleLocations(eligible)
+      setSourceLocations(sources)
 
     } catch (err) {
       console.error(err)
@@ -328,7 +329,7 @@ export default function Transfer() {
               required
             >
               <option value="">Selecciona origen...</option>
-              {eligibleLocations.map(l => (
+              {sourceLocations.map(l => (
                 <option key={l.id} value={l.id}>
                   {getLocationIcon(l.type)} {l.name} ({l.type})
                 </option>
@@ -346,7 +347,7 @@ export default function Transfer() {
               disabled={!fromLocation}
             >
               <option value="">Selecciona destino...</option>
-              {eligibleLocations
+              {locations
                 .filter(l => l.id !== fromLocation)
                 .map(l => (
                   <option key={l.id} value={l.id}>
