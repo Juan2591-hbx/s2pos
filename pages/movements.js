@@ -8,13 +8,18 @@ export default function Movements() {
   const [selectedLocationType, setSelectedLocationType] = useState('')
   const [products, setProducts] = useState([])
   const [quantities, setQuantities] = useState({})
-  const [movementType, setMovementType] = useState('adjustment_pos')
+  const [batchNumbers, setBatchNumbers] = useState({})
+  const [expirationDates, setExpirationDates] = useState({})
+  const [movementType, setMovementType] = useState('restock')
   const [notes, setNotes] = useState('')
   const [loading, setLoading] = useState(false)
   const [loadingData, setLoadingData] = useState(true)
   const [message, setMessage] = useState(null)
 
-  // Tipos base para POS (todos los que pueden)
+  // Tipos que requieren lote y caducidad
+  const typesRequiringBatch = ['restock', 'transfer_in', 'transfer_out']
+
+  // Tipos base para POS
   const baseMovementTypes = [
     { type: 'adjustment_pos', description: '✏️ Ajuste Positivo (suma stock)', effect: '➕' },
     { type: 'adjustment_neg', description: '✏️ Ajuste Negativo (resta stock)', effect: '➖' },
@@ -22,13 +27,12 @@ export default function Movements() {
     { type: 'promo', description: '🎁 Promoción (resta stock)', effect: '➖' },
     { type: 'expired', description: '⏰ Vencido (resta stock)', effect: '➖' },
     { type: 'damaged', description: '🔨 Dañado (resta stock)', effect: '➖' },
-    { type: 'transfer_in', description: '🚚 Transferencia Entrada (suma stock)', effect: '➕' }
+    { type: 'transfer_in', description: '🚚 Transferencia Entrada (suma stock)', effect: '➕' },
+    { type: 'transfer_out', description: '📤 Transferencia Salida (resta stock)', effect: '➖' }
   ]
 
-  // Tipos adicionales solo para warehouse/hybrid
   const warehouseTypes = [
-    { type: 'restock', description: '📦 Reabastecimiento (suma stock)', effect: '➕' },
-    { type: 'transfer_out', description: '📤 Transferencia Salida (resta stock)', effect: '➖' }
+    { type: 'restock', description: '📦 Reabastecimiento (suma stock)', effect: '➕' }
   ]
 
   const [movementTypes, setMovementTypes] = useState(baseMovementTypes)
@@ -37,18 +41,15 @@ export default function Movements() {
     fetchLocationsAndProducts()
   }, [])
 
-  // Actualizar tipos de movimiento cuando cambia la ubicación seleccionada
   useEffect(() => {
     if (selectedLocationType === 'warehouse' || selectedLocationType === 'hybrid') {
       setMovementTypes([...baseMovementTypes, ...warehouseTypes])
-      // Si el tipo actual no está disponible, resetear a adjustment_pos
       const currentTypeAvailable = [...baseMovementTypes, ...warehouseTypes].some(t => t.type === movementType)
       if (!currentTypeAvailable) {
-        setMovementType('adjustment_pos')
+        setMovementType('restock')
       }
     } else {
       setMovementTypes(baseMovementTypes)
-      // Si el tipo actual no está disponible, resetear a adjustment_pos
       const currentTypeAvailable = baseMovementTypes.some(t => t.type === movementType)
       if (!currentTypeAvailable) {
         setMovementType('adjustment_pos')
@@ -58,7 +59,6 @@ export default function Movements() {
 
   async function fetchLocationsAndProducts() {
     try {
-      // Cargar todas las ubicaciones
       const { data: locs } = await supabase
         .from('locations')
         .select('id, name, type')
@@ -70,7 +70,6 @@ export default function Movements() {
         setSelectedLocationType(locs[0].type)
       }
 
-      // Cargar todos los productos
       const { data: prods } = await supabase
         .from('products')
         .select('id, name')
@@ -78,10 +77,17 @@ export default function Movements() {
 
       setProducts(prods || [])
       
-      // Inicializar cantidades en 0
       const initialQtys = {}
-      prods?.forEach(p => { initialQtys[p.id] = 0 })
+      const initialBatches = {}
+      const initialDates = {}
+      prods?.forEach(p => { 
+        initialQtys[p.id] = 0
+        initialBatches[p.id] = ''
+        initialDates[p.id] = ''
+      })
       setQuantities(initialQtys)
+      setBatchNumbers(initialBatches)
+      setExpirationDates(initialDates)
     } catch (err) {
       console.error('Error cargando datos:', err)
       setMessage({ type: 'error', text: 'Error cargando productos y ubicaciones' })
@@ -117,10 +123,15 @@ export default function Movements() {
 
   const handleQuantityChange = (productId, value) => {
     const qty = parseInt(value) || 0
-    setQuantities(prev => ({
-      ...prev,
-      [productId]: qty
-    }))
+    setQuantities(prev => ({ ...prev, [productId]: qty }))
+  }
+
+  const handleBatchChange = (productId, value) => {
+    setBatchNumbers(prev => ({ ...prev, [productId]: value }))
+  }
+
+  const handleExpirationChange = (productId, value) => {
+    setExpirationDates(prev => ({ ...prev, [productId]: value }))
   }
 
   const isExitMovement = (type) => {
@@ -131,27 +142,23 @@ export default function Movements() {
     return ['adjustment_pos', 'restock', 'transfer_in'].includes(type)
   }
 
+  const requiresBatch = (type) => {
+    return typesRequiringBatch.includes(type)
+  }
+
   const getEffectText = (type, qty, currentStock) => {
     if (qty === 0) return '—'
     
-    if (type === 'adjustment_pos') {
-      return '➕ Suma stock'
-    }
+    if (type === 'adjustment_pos') return '➕ Suma stock'
     if (type === 'adjustment_neg') {
-      if (qty > currentStock) {
-        return '⚠️ Excede stock'
-      }
+      if (qty > currentStock) return '⚠️ Excede stock'
       return '➖ Resta stock'
     }
     if (isExitMovement(type)) {
-      if (qty > currentStock) {
-        return '⚠️ Excede stock'
-      }
+      if (qty > currentStock) return '⚠️ Excede stock'
       return '➖ Resta stock'
     }
-    if (isEntryMovement(type)) {
-      return '➕ Suma stock'
-    }
+    if (isEntryMovement(type)) return '➕ Suma stock'
     return '—'
   }
 
@@ -170,6 +177,36 @@ export default function Movements() {
     return '#666'
   }
 
+  const validateForm = () => {
+    const entries = Object.entries(quantities).filter(([_, qty]) => qty > 0)
+    
+    if (entries.length === 0) {
+      setMessage({ type: 'error', text: 'No hay productos con cantidad a registrar' })
+      return false
+    }
+
+    if (requiresBatch(movementType)) {
+      for (const [productId, qty] of entries) {
+        const batch = batchNumbers[productId]
+        const expiration = expirationDates[productId]
+        
+        if (!batch || batch.trim() === '') {
+          const productName = products.find(p => p.id === productId)?.name
+          setMessage({ type: 'error', text: `❌ El producto "${productName}" requiere un número de lote` })
+          return false
+        }
+        
+        if (!expiration) {
+          const productName = products.find(p => p.id === productId)?.name
+          setMessage({ type: 'error', text: `❌ El producto "${productName}" requiere una fecha de caducidad` })
+          return false
+        }
+      }
+    }
+
+    return true
+  }
+
   const handleSubmit = async (e) => {
     e.preventDefault()
     setLoading(true)
@@ -181,17 +218,15 @@ export default function Movements() {
       return
     }
 
-    const movementsToRegister = Object.entries(quantities)
-      .filter(([_, qty]) => qty > 0)
-      .map(([productId, qty]) => ({ productId, qty }))
-
-    if (movementsToRegister.length === 0) {
-      setMessage({ type: 'error', text: 'No hay productos con cantidad a registrar' })
+    if (!validateForm()) {
       setLoading(false)
       return
     }
 
-    // Validar stock para movimientos de salida
+    const movementsToRegister = Object.entries(quantities)
+      .filter(([_, qty]) => qty > 0)
+      .map(([productId, qty]) => ({ productId, qty }))
+
     const errors = []
     for (const { productId, qty } of movementsToRegister) {
       if (isExitMovement(movementType)) {
@@ -217,24 +252,32 @@ export default function Movements() {
         let finalQuantity = qty
         
         if (movementType === 'adjustment_pos') {
-          finalQuantity = qty  // positivo
+          finalQuantity = qty
         } else if (movementType === 'adjustment_neg') {
-          finalQuantity = -qty // negativo
+          finalQuantity = -qty
         } else if (isExitMovement(movementType)) {
           finalQuantity = -qty
         } else if (isEntryMovement(movementType)) {
           finalQuantity = qty
         }
 
+        const movementData = {
+          product_id: productId,
+          location_id: selectedLocation,
+          quantity: finalQuantity,
+          movement_type: movementType,
+          notes: notes || `Movimiento masivo: ${movementInfo?.description}`
+        }
+
+        // Agregar información de lote si es requerido
+        if (requiresBatch(movementType)) {
+          movementData.batch_number = batchNumbers[productId]
+          movementData.expiration_date = expirationDates[productId]
+        }
+
         const { error } = await supabase
           .from('inventory_movements')
-          .insert([{
-            product_id: productId,
-            location_id: selectedLocation,
-            quantity: finalQuantity,
-            movement_type: movementType,
-            notes: notes || `Movimiento masivo: ${movementInfo?.description}`
-          }])
+          .insert([movementData])
 
         if (error) throw error
       }
@@ -248,8 +291,16 @@ export default function Movements() {
       })
       
       const resetQtys = {}
-      products.forEach(p => { resetQtys[p.id] = 0 })
+      const resetBatches = {}
+      const resetDates = {}
+      products.forEach(p => { 
+        resetQtys[p.id] = 0
+        resetBatches[p.id] = ''
+        resetDates[p.id] = ''
+      })
       setQuantities(resetQtys)
+      setBatchNumbers(resetBatches)
+      setExpirationDates(resetDates)
       setNotes('')
       fetchStockForLocation()
       
@@ -292,9 +343,6 @@ export default function Movements() {
     )
   }
 
-  const selectedLocationName = locations.find(l => l.id === selectedLocation)?.name
-  const selectedLocationTypeLabel = locations.find(l => l.id === selectedLocation)?.type
-
   return (
     <div style={{ padding: '20px', fontFamily: 'sans-serif' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
@@ -329,7 +377,7 @@ export default function Movements() {
         marginBottom: '20px',
         borderLeft: '4px solid #2196f3'
       }}>
-        💡 Registra múltiples productos en un solo movimiento. Solo ingresa cantidades en los productos que deseas afectar.
+        💡 Registra múltiples productos en un solo movimiento. {requiresBatch(movementType) && 'Los movimientos de entrada requieren número de lote y fecha de caducidad.'}
       </div>
 
       <form onSubmit={handleSubmit}>
@@ -394,13 +442,19 @@ export default function Movements() {
         <div style={{ maxHeight: '500px', overflowY: 'auto', marginBottom: '20px' }}>
           <table border="1" cellPadding="8" style={{ borderCollapse: 'collapse', width: '100%' }}>
             <thead>
-              <tr style={{ backgroundColor: '#f0f0f0', position: 'sticky', top: 0 }}>
-                <th>Producto</th>
-                <th>Stock Actual</th>
-                <th>Cantidad a Registrar</th>
-                <th>Efecto</th>
-                </tr>
-            </thead>
+  <tr style={{ backgroundColor: '#f0f0f0', position: 'sticky', top: 0 }}>
+    <th>Producto</th>
+    <th>Stock Actual</th>
+    {requiresBatch(movementType) && (
+      <>
+        <th>N° Lote</th>
+        <th>Fecha Caducidad</th>
+      </>
+    )}
+    <th>Cantidad</th>
+    <th>Efecto</th>
+  </tr>
+</thead>
             <tbody>
               {products.map(product => {
                 const currentStock = stockMap[product.id] || 0
@@ -412,6 +466,27 @@ export default function Movements() {
                   <tr key={product.id} style={{ backgroundColor: qty > 0 ? '#f9f9f9' : 'white' }}>
                     <td><strong>{product.name}</strong></td>
                     <td style={{ textAlign: 'center' }}>{currentStock}</td>
+                    {requiresBatch(movementType) && (
+                      <>
+                        <td>
+                          <input
+                            type="text"
+                            value={batchNumbers[product.id] || ''}
+                            onChange={(e) => handleBatchChange(product.id, e.target.value)}
+                            placeholder="Ej: LOTE-001"
+                            style={{ width: '120px', padding: '5px' }}
+                          />
+                        </td>
+                        <td>
+                          <input
+                            type="date"
+                            value={expirationDates[product.id] || ''}
+                            onChange={(e) => handleExpirationChange(product.id, e.target.value)}
+                            style={{ width: '130px', padding: '5px' }}
+                          />
+                        </td>
+                      </>
+                    )}
                     <td style={{ textAlign: 'center' }}>
                       <input
                         type="number"
@@ -424,7 +499,7 @@ export default function Movements() {
                     <td style={{ textAlign: 'center', color: effectColor, fontWeight: 'bold' }}>
                       {effectText}
                     </td>
-                  </tr>
+                  </table>
                 )
               })}
             </tbody>
