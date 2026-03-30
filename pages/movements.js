@@ -450,7 +450,7 @@ export default function Movements() {
                 )}
                 <th>Cantidad</th>
                 <th>Efecto</th>
-              </table>
+              </tr>
             </thead>
             <tbody>
               {products.map(product => {
