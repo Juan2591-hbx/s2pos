@@ -1,14 +1,16 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
+import Link from 'next/link'
 
 export default function Transfer() {
   const [locations, setLocations] = useState([])
-  const [sourceLocations, setSourceLocations] = useState([])  // Pueden enviar
-  const [targetLocations, setTargetLocations] = useState([])  // Pueden recibir
+  const [eligibleLocations, setEligibleLocations] = useState([])
   const [products, setProducts] = useState([])
   const [fromLocation, setFromLocation] = useState('')
   const [toLocation, setToLocation] = useState('')
   const [quantities, setQuantities] = useState({})
+  const [batchNumbers, setBatchNumbers] = useState({})
+  const [expirationDates, setExpirationDates] = useState({})
   const [loading, setLoading] = useState(false)
   const [loadingData, setLoadingData] = useState(true)
   const [message, setMessage] = useState(null)
@@ -16,6 +18,12 @@ export default function Transfer() {
   useEffect(() => {
     fetchData()
   }, [])
+
+  useEffect(() => {
+    if (fromLocation) {
+      loadProducts()
+    }
+  }, [fromLocation])
 
   async function fetchData() {
     try {
@@ -26,15 +34,10 @@ export default function Transfer() {
 
       setLocations(allLocs || [])
 
-      // Pueden ENVIAR: warehouse y hybrid (POS NO)
-      const sources = (allLocs || []).filter(
+      const eligible = (allLocs || []).filter(
         loc => loc.type === 'warehouse' || loc.type === 'hybrid'
       )
-      setSourceLocations(sources)
-
-      // Pueden RECIBIR: todos (warehouse, hybrid, pos)
-      // Pero si es POS, solo puede recibir, no enviar
-      setTargetLocations(allLocs || [])
+      setEligibleLocations(eligible)
 
     } catch (err) {
       console.error(err)
@@ -44,8 +47,8 @@ export default function Transfer() {
     }
   }
 
-  async function loadProducts(locationId) {
-    if (!locationId) return
+  async function loadProducts() {
+    if (!fromLocation) return
 
     try {
       const { data: inventory } = await supabase
@@ -55,7 +58,7 @@ export default function Transfer() {
           total_stock,
           products (id, name)
         `)
-        .eq('location_id', locationId)
+        .eq('location_id', fromLocation)
         .gt('total_stock', 0)
 
       if (inventory) {
@@ -67,11 +70,18 @@ export default function Transfer() {
         setProducts(productsList)
         
         const initialQtys = {}
-        productsList.forEach(p => { initialQtys[p.id] = 0 })
+        const initialBatches = {}
+        const initialDates = {}
+        productsList.forEach(p => {
+          initialQtys[p.id] = 0
+          initialBatches[p.id] = ''
+          initialDates[p.id] = ''
+        })
         setQuantities(initialQtys)
+        setBatchNumbers(initialBatches)
+        setExpirationDates(initialDates)
       } else {
         setProducts([])
-        setQuantities({})
       }
     } catch (err) {
       console.error(err)
@@ -82,7 +92,7 @@ export default function Transfer() {
   const handleFromLocationChange = (locationId) => {
     setFromLocation(locationId)
     setToLocation('')
-    loadProducts(locationId)
+    setProducts([])
   }
 
   const handleQuantityChange = (productId, value) => {
@@ -92,21 +102,26 @@ export default function Transfer() {
     }))
   }
 
+  const handleBatchChange = (productId, value) => {
+    setBatchNumbers(prev => ({
+      ...prev,
+      [productId]: value
+    }))
+  }
+
+  const handleExpirationChange = (productId, value) => {
+    setExpirationDates(prev => ({
+      ...prev,
+      [productId]: value
+    }))
+  }
+
   const getLocationIcon = (type) => {
     switch(type) {
       case 'warehouse': return '🏭'
       case 'hybrid': return '🔄'
       case 'pos': return '🏪'
       default: return '📍'
-    }
-  }
-
-  const getLocationDescription = (type) => {
-    switch(type) {
-      case 'warehouse': return 'Bodega (envía y recibe)'
-      case 'hybrid': return 'Híbrido (envía, recibe y vende)'
-      case 'pos': return 'Punto de Venta (solo recibe y vende)'
-      default: return ''
     }
   }
 
@@ -130,17 +145,11 @@ export default function Transfer() {
     const fromLoc = locations.find(l => l.id === fromLocation)
     const toLoc = locations.find(l => l.id === toLocation)
 
-    // Validar que origen pueda enviar (warehouse o hybrid)
     if (fromLoc.type === 'pos') {
-      setMessage({ 
-        type: 'error', 
-        text: '❌ Los puntos de venta (POS) no pueden realizar transferencias. Solo pueden recibir productos.' 
-      })
+      setMessage({ type: 'error', text: '❌ Los puntos de venta (POS) no pueden realizar transferencias' })
       setLoading(false)
       return
     }
-
-    // POS puede recibir, así que no hay restricción para destino
 
     const transfers = Object.entries(quantities)
       .filter(([_, qty]) => qty > 0)
@@ -152,12 +161,35 @@ export default function Transfer() {
       return
     }
 
+    // Validar que todos los productos tengan lote y caducidad
+    for (const { productId, qty } of transfers) {
+      const batch = batchNumbers[productId]
+      const expiration = expirationDates[productId]
+      
+      if (!batch || batch.trim() === '') {
+        const product = products.find(p => p.id === productId)
+        setMessage({ type: 'error', text: `❌ El producto "${product?.name}" requiere un número de lote para la transferencia` })
+        setLoading(false)
+        return
+      }
+      
+      if (!expiration) {
+        const product = products.find(p => p.id === productId)
+        setMessage({ type: 'error', text: `❌ El producto "${product?.name}" requiere una fecha de caducidad para la transferencia` })
+        setLoading(false)
+        return
+      }
+    }
+
     const fromName = fromLoc.name
     const toName = toLoc.name
 
     try {
       for (const { productId, qty } of transfers) {
-        // Salida del origen
+        const batchNumber = batchNumbers[productId]
+        const expirationDate = expirationDates[productId]
+        
+        // Salida
         const { error: errorOut } = await supabase
           .from('inventory_movements')
           .insert([{
@@ -165,12 +197,14 @@ export default function Transfer() {
             location_id: fromLocation,
             quantity: -qty,
             movement_type: 'transfer_out',
-            notes: `Transferencia a ${toName} (${fromLoc.type} → ${toLoc.type})`
+            notes: `Transferencia a ${toName}`,
+            batch_number: batchNumber,
+            expiration_date: expirationDate
           }])
 
         if (errorOut) throw errorOut
 
-        // Entrada al destino
+        // Entrada
         const { error: errorIn } = await supabase
           .from('inventory_movements')
           .insert([{
@@ -178,7 +212,9 @@ export default function Transfer() {
             location_id: toLocation,
             quantity: qty,
             movement_type: 'transfer_in',
-            notes: `Transferencia desde ${fromName} (${fromLoc.type} → ${toLoc.type})`
+            notes: `Transferencia desde ${fromName}`,
+            batch_number: batchNumber,
+            expiration_date: expirationDate
           }])
 
         if (errorIn) throw errorIn
@@ -190,9 +226,17 @@ export default function Transfer() {
       })
       
       const resetQtys = {}
-      products.forEach(p => { resetQtys[p.id] = 0 })
+      const resetBatches = {}
+      const resetDates = {}
+      products.forEach(p => {
+        resetQtys[p.id] = 0
+        resetBatches[p.id] = ''
+        resetDates[p.id] = ''
+      })
       setQuantities(resetQtys)
-      loadProducts(fromLocation)
+      setBatchNumbers(resetBatches)
+      setExpirationDates(resetDates)
+      loadProducts()
       
     } catch (err) {
       console.error(err)
@@ -205,7 +249,7 @@ export default function Transfer() {
   if (loadingData) {
     return (
       <div style={{ padding: '20px', fontFamily: 'sans-serif' }}>
-        <h1>🚚 Transferencia de Inventario</h1>
+        <h1>🚚 Transferencia entre Bodegas</h1>
         <p>Cargando datos...</p>
       </div>
     )
@@ -216,7 +260,30 @@ export default function Transfer() {
 
   return (
     <div style={{ padding: '20px', fontFamily: 'sans-serif' }}>
-      <h1>🚚 Transferencia de Inventario</h1>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+        <Link href="/inventory" style={{ 
+          backgroundColor: '#0070f3', 
+          color: 'white', 
+          padding: '8px 16px', 
+          borderRadius: '5px', 
+          textDecoration: 'none',
+          fontSize: '14px'
+        }}>
+          ← Ver Inventario
+        </Link>
+        <Link href="/" style={{ 
+          backgroundColor: '#0070f3', 
+          color: 'white', 
+          padding: '8px 16px', 
+          borderRadius: '5px', 
+          textDecoration: 'none',
+          fontSize: '14px'
+        }}>
+          Dashboard →
+        </Link>
+      </div>
+
+      <h1>🚚 Transferencia entre Bodegas</h1>
       
       <div style={{ 
         backgroundColor: '#fff3e0', 
@@ -225,16 +292,13 @@ export default function Transfer() {
         marginBottom: '20px',
         borderLeft: '4px solid #ff9800'
       }}>
-        💡 <strong>Reglas:</strong><br/>
-        • 🏭 Warehouse y 🔄 Hybrid pueden <strong>ENVIAR</strong> productos<br/>
-        • Todos (Warehouse, Hybrid, POS) pueden <strong>RECIBIR</strong> productos<br/>
-        • 🏪 POS solo pueden recibir (no pueden enviar)
+        💡 Las transferencias requieren número de lote y fecha de caducidad para cada producto.
       </div>
       
       <form onSubmit={handleSubmit}>
         <div style={{ display: 'flex', gap: '20px', marginBottom: '20px' }}>
           <div style={{ flex: 1 }}>
-            <label>Origen (envía):</label>
+            <label>Bodega Origen (envía):</label>
             <select
               value={fromLocation}
               onChange={(e) => handleFromLocationChange(e.target.value)}
@@ -242,21 +306,16 @@ export default function Transfer() {
               required
             >
               <option value="">Selecciona origen...</option>
-              {sourceLocations.map(l => (
+              {eligibleLocations.map(l => (
                 <option key={l.id} value={l.id}>
                   {getLocationIcon(l.type)} {l.name} ({l.type})
                 </option>
               ))}
             </select>
-            {fromLocInfo && (
-              <p style={{ fontSize: '12px', color: '#666', marginTop: '5px' }}>
-                {getLocationDescription(fromLocInfo.type)}
-              </p>
-            )}
           </div>
           
           <div style={{ flex: 1 }}>
-            <label>Destino (recibe):</label>
+            <label>Bodega Destino (recibe):</label>
             <select
               value={toLocation}
               onChange={(e) => setToLocation(e.target.value)}
@@ -265,7 +324,7 @@ export default function Transfer() {
               disabled={!fromLocation}
             >
               <option value="">Selecciona destino...</option>
-              {targetLocations
+              {eligibleLocations
                 .filter(l => l.id !== fromLocation)
                 .map(l => (
                   <option key={l.id} value={l.id}>
@@ -274,11 +333,6 @@ export default function Transfer() {
                 ))
               }
             </select>
-            {toLocInfo && (
-              <p style={{ fontSize: '12px', color: '#666', marginTop: '5px' }}>
-                {getLocationDescription(toLocInfo.type)}
-              </p>
-            )}
           </div>
         </div>
 
@@ -291,8 +345,6 @@ export default function Transfer() {
             fontSize: '14px'
           }}>
             📍 <strong>Desde {fromLocInfo.name}</strong> ({fromLocInfo.type}) 
-            {fromLocInfo.type === 'warehouse' && ' → Puede enviar a cualquier ubicación'}
-            {fromLocInfo.type === 'hybrid' && ' → Puede enviar a cualquier ubicación'}
             {toLocInfo && ` → Hacia ${toLocInfo.name} (${toLocInfo.type})`}
           </div>
         )}
@@ -313,51 +365,60 @@ export default function Transfer() {
           <>
             <h3>Productos disponibles en {fromLocInfo?.name}:</h3>
             
-            <table border="1" cellPadding="8" style={{ borderCollapse: 'collapse', width: '100%', marginBottom: '20px' }}>
-              <thead>
-                <tr style={{ backgroundColor: '#f0f0f0' }}>
-                  <th>Producto</th>
-                  <th>Stock Actual</th>
-                  <th>Cantidad a Transferir</th>
-                  <th>Destino</th>
-                  <th>Tipo Destino</th>
-                 </tr>
-              </thead>
-              <tbody>
-                {products.map(product => (
-                  <tr key={product.id}>
-                     <td>{product.name}</td>
-                    <td style={{ textAlign: 'center', fontWeight: 'bold' }}>{product.stock}</td>
-                    <td style={{ textAlign: 'center' }}>
-                      <input
-                        type="number"
-                        min="0"
-                        max={product.stock}
-                        value={quantities[product.id] || 0}
-                        onChange={(e) => handleQuantityChange(product.id, e.target.value)}
-                        style={{ width: '100px', padding: '5px' }}
-                      />
-                    </td>
-                    <td style={{ textAlign: 'center' }}>
-                      {toLocInfo ? toLocInfo.name : '—'}
-                    </td>
-                    <td style={{ textAlign: 'center' }}>
-                      {toLocInfo && (
-                        <span style={{ 
-                          backgroundColor: toLocInfo.type === 'pos' ? '#ff9800' : '#4caf50',
-                          color: 'white',
-                          padding: '2px 8px',
-                          borderRadius: '12px',
-                          fontSize: '11px'
-                        }}>
-                          {toLocInfo.type}
-                        </span>
-                      )}
-                    </td>
-                   </tr>
-                ))}
-              </tbody>
-            </table>
+            <div style={{ maxHeight: '500px', overflowY: 'auto', marginBottom: '20px' }}>
+              <table border="1" cellPadding="8" style={{ borderCollapse: 'collapse', width: '100%' }}>
+                <thead>
+                  <tr style={{ backgroundColor: '#f0f0f0', position: 'sticky', top: 0 }}>
+                    <th>Producto</th>
+                    <th>Stock Actual</th>
+                    <th>N° Lote</th>
+                    <th>Fecha Caducidad</th>
+                    <th>Cantidad a Transferir</th>
+                    <th>Destino</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {products.map(product => (
+                    <tr key={product.id}>
+                      <td><strong>{product.name}</strong></td>
+                      <td style={{ textAlign: 'center', fontWeight: 'bold' }}>{product.stock}</td>
+                      <td>
+                        <input
+                          type="text"
+                          value={batchNumbers[product.id] || ''}
+                          onChange={(e) => handleBatchChange(product.id, e.target.value)}
+                          placeholder="Ej: LOTE-001"
+                          style={{ width: '120px', padding: '5px' }}
+                          required
+                        />
+                      </td>
+                      <td>
+                        <input
+                          type="date"
+                          value={expirationDates[product.id] || ''}
+                          onChange={(e) => handleExpirationChange(product.id, e.target.value)}
+                          style={{ width: '130px', padding: '5px' }}
+                          required
+                        />
+                      </td>
+                      <td style={{ textAlign: 'center' }}>
+                        <input
+                          type="number"
+                          min="0"
+                          max={product.stock}
+                          value={quantities[product.id] || 0}
+                          onChange={(e) => handleQuantityChange(product.id, e.target.value)}
+                          style={{ width: '100px', padding: '5px', textAlign: 'center' }}
+                        />
+                      </td>
+                      <td style={{ textAlign: 'center' }}>
+                        {toLocInfo ? `${getLocationIcon(toLocInfo.type)} ${toLocInfo.name}` : '—'}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
             
             <button
               type="submit"
@@ -368,37 +429,4 @@ export default function Transfer() {
                 padding: '12px 24px',
                 border: 'none',
                 borderRadius: '5px',
-                cursor: (loading || !toLocation) ? 'not-allowed' : 'pointer',
-                fontWeight: 'bold',
-                fontSize: '16px'
-              }}
-            >
-              {loading ? 'Procesando...' : '🚚 Realizar Transferencia'}
-            </button>
-          </>
-        )}
-
-        {message && (
-          <div style={{
-            marginTop: '20px',
-            padding: '10px',
-            backgroundColor: message.type === 'success' ? '#d4edda' : '#f8d7da',
-            color: message.type === 'success' ? '#155724' : '#721c24',
-            borderRadius: '5px'
-          }}>
-            {message.text}
-          </div>
-        )}
-      </form>
-
-      <div style={{ marginTop: '30px' }}>
-        <a href="/inventory" style={{ color: '#0070f3', textDecoration: 'none', marginRight: '20px' }}>
-          ← Ver Inventario
-        </a>
-        <a href="/movements" style={{ color: '#0070f3', textDecoration: 'none' }}>
-          Movimientos Manuales →
-        </a>
-      </div>
-    </div>
-  )
-}
+                cursor: (
