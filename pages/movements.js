@@ -16,10 +16,8 @@ export default function Movements() {
   const [loadingData, setLoadingData] = useState(true)
   const [message, setMessage] = useState(null)
 
-  // Tipos que requieren lote y caducidad
   const typesRequiringBatch = ['restock', 'transfer_in', 'transfer_out']
 
-  // Tipos base para POS
   const baseMovementTypes = [
     { type: 'adjustment_pos', description: '✏️ Ajuste Positivo (suma stock)', effect: '➕' },
     { type: 'adjustment_neg', description: '✏️ Ajuste Negativo (resta stock)', effect: '➖' },
@@ -269,7 +267,6 @@ export default function Movements() {
           notes: notes || `Movimiento masivo: ${movementInfo?.description}`
         }
 
-        // Agregar información de lote si es requerido
         if (requiresBatch(movementType)) {
           movementData.batch_number = batchNumbers[productId]
           movementData.expiration_date = expirationDates[productId]
@@ -442,19 +439,19 @@ export default function Movements() {
         <div style={{ maxHeight: '500px', overflowY: 'auto', marginBottom: '20px' }}>
           <table border="1" cellPadding="8" style={{ borderCollapse: 'collapse', width: '100%' }}>
             <thead>
-  <tr style={{ backgroundColor: '#f0f0f0', position: 'sticky', top: 0 }}>
-    <th>Producto</th>
-    <th>Stock Actual</th>
-    {requiresBatch(movementType) && (
-      <>
-        <th>N° Lote</th>
-        <th>Fecha Caducidad</th>
-      </>
-    )}
-    <th>Cantidad</th>
-    <th>Efecto</th>
-  </tr>
-</thead>
+              <tr style={{ backgroundColor: '#f0f0f0', position: 'sticky', top: 0 }}>
+                <th>Producto</th>
+                <th>Stock Actual</th>
+                {requiresBatch(movementType) && (
+                  <>
+                    <th>N° Lote</th>
+                    <th>Fecha Caducidad</th>
+                  </>
+                )}
+                <th>Cantidad</th>
+                <th>Efecto</th>
+              </table>
+            </thead>
             <tbody>
               {products.map(product => {
                 const currentStock = stockMap[product.id] || 0
@@ -499,7 +496,7 @@ export default function Movements() {
                     <td style={{ textAlign: 'center', color: effectColor, fontWeight: 'bold' }}>
                       {effectText}
                     </td>
-                  </table>
+                  </tr>
                 )
               })}
             </tbody>
