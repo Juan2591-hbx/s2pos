@@ -249,6 +249,28 @@ export default function Transfer() {
   if (loadingData) {
     return (
       <div style={{ padding: '20px', fontFamily: 'sans-serif' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+          <Link href="/inventory" style={{ 
+            backgroundColor: '#0070f3', 
+            color: 'white', 
+            padding: '8px 16px', 
+            borderRadius: '5px', 
+            textDecoration: 'none',
+            fontSize: '14px'
+          }}>
+            ← Ver Inventario
+          </Link>
+          <Link href="/" style={{ 
+            backgroundColor: '#0070f3', 
+            color: 'white', 
+            padding: '8px 16px', 
+            borderRadius: '5px', 
+            textDecoration: 'none',
+            fontSize: '14px'
+          }}>
+            Dashboard →
+          </Link>
+        </div>
         <h1>🚚 Transferencia entre Bodegas</h1>
         <p>Cargando datos...</p>
       </div>
@@ -429,4 +451,28 @@ export default function Transfer() {
                 padding: '12px 24px',
                 border: 'none',
                 borderRadius: '5px',
-                cursor: (
+                cursor: (loading || !toLocation) ? 'not-allowed' : 'pointer',
+                fontWeight: 'bold',
+                fontSize: '16px'
+              }}
+            >
+              {loading ? 'Procesando...' : '🚚 Realizar Transferencia'}
+            </button>
+          </>
+        )}
+
+        {message && (
+          <div style={{
+            marginTop: '20px',
+            padding: '10px',
+            backgroundColor: message.type === 'success' ? '#d4edda' : '#f8d7da',
+            color: message.type === 'success' ? '#155724' : '#721c24',
+            borderRadius: '5px'
+          }}>
+            {message.text}
+          </div>
+        )}
+      </form>
+    </div>
+  )
+}
