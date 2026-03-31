@@ -76,7 +76,7 @@ export default function Movements() {
       const initialQtys = {}
       const initialBatches = {}
       const initialDates = {}
-      prods?.forEach(p => { 
+      prods.forEach(p => { 
         initialQtys[p.id] = 0
         initialBatches[p.id] = ''
         initialDates[p.id] = ''
@@ -182,7 +182,7 @@ export default function Movements() {
     }
 
     if (requiresBatch(movementType)) {
-      for (const [productId, qty] of entries) {
+      for (const [productId] of entries) {
         const batch = batchNumbers[productId]
         const expiration = expirationDates[productId]
         
@@ -262,21 +262,23 @@ export default function Movements() {
 
         let movementNotes = notes || `Movimiento masivo: ${movementInfo?.description}`
         
+        const movementData = {
+          product_id: productId,
+          location_id: selectedLocation,
+          quantity: finalQuantity,
+          movement_type: movementType,
+          notes: movementNotes
+        }
+
         if (requiresBatch(movementType)) {
-          const lotNumber = batchNumbers[productId]
-          const expirationDate = expirationDates[productId]
-          movementNotes += ` | Lote: ${lotNumber} | Caducidad: ${expirationDate}`
+          movementData.lot_number = batchNumbers[productId]
+          movementData.expiration_date = expirationDates[productId]
+          movementData.notes += ` | Lote: ${batchNumbers[productId]} | Caducidad: ${expirationDates[productId]}`
         }
 
         const { error } = await supabase
           .from('inventory_movements')
-          .insert([{
-            product_id: productId,
-            location_id: selectedLocation,
-            quantity: finalQuantity,
-            movement_type: movementType,
-            notes: movementNotes
-          }])
+          .insert([movementData])
 
         if (error) throw error
       }
@@ -452,7 +454,7 @@ export default function Movements() {
                 )}
                 <th>Cantidad</th>
                 <th>Efecto</th>
-               </tr>
+               </thead>
             </thead>
             <tbody>
               {products.map(product => {
