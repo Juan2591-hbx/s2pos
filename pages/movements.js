@@ -305,8 +305,10 @@ export default function Movements() {
           finalQuantity = qty
         }
 
+        // Construir la nota
         let movementNotes = notes || `Movimiento masivo: ${movementInfo?.description}`
         
+        // Para reabastecimiento, agregar lote y caducidad en la nota
         if (requiresBatch(movementType)) {
           const lotNumber = batchNumbers[productId]
           const expirationDate = expirationDates[productId]
@@ -327,6 +329,7 @@ export default function Movements() {
 
         if (error) throw error
 
+        // Actualizar inventory_batches solo para reabastecimiento
         if (requiresBatch(movementType)) {
           const lotNumber = batchNumbers[productId]
           const expirationDate = expirationDates[productId]
@@ -505,7 +508,7 @@ export default function Movements() {
                 )}
                 <th>Cantidad</th>
                 <th>Efecto</th>
-               </tr>
+              </tr>
             </thead>
             <tbody>
               {products.map(product => {
