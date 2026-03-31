@@ -452,7 +452,7 @@ export default function Movements() {
                 )}
                 <th>Cantidad</th>
                 <th>Efecto</th>
-               </thead>
+               </tr>
             </thead>
             <tbody>
               {products.map(product => {
