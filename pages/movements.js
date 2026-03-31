@@ -268,8 +268,6 @@ export default function Movements() {
           movementNotes += ` | Lote: ${lotNumber} | Caducidad: ${expirationDate}`
         }
 
-        // Solo insertar en inventory_movements
-        // El trigger trigger_manual_inventory_movement se encarga de actualizar inventory_batches y inventory_totals
         const { error } = await supabase
           .from('inventory_movements')
           .insert([{
