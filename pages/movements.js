@@ -117,54 +117,6 @@ export default function Movements() {
     }
   }
 
-  async function updateOrCreateBatch(productId, locationId, lotNumber, expirationDate, quantity, isAddition) {
-    try {
-      const { data: existingBatch, error: searchError } = await supabase
-        .from('inventory_batches')
-        .select('id, quantity')
-        .eq('product_id', productId)
-        .eq('location_id', locationId)
-        .eq('lot_number', lotNumber)
-        .maybeSingle()
-
-      if (searchError) throw searchError
-
-      if (existingBatch) {
-        let newQuantity
-        if (isAddition) {
-          newQuantity = existingBatch.quantity + quantity
-        } else {
-          newQuantity = existingBatch.quantity - quantity
-        }
-        
-        if (newQuantity <= 0) {
-          await supabase
-            .from('inventory_batches')
-            .delete()
-            .eq('id', existingBatch.id)
-        } else {
-          await supabase
-            .from('inventory_batches')
-            .update({ quantity: newQuantity })
-            .eq('id', existingBatch.id)
-        }
-      } else if (isAddition && quantity > 0) {
-        await supabase
-          .from('inventory_batches')
-          .insert([{
-            product_id: productId,
-            location_id: locationId,
-            lot_number: lotNumber,
-            expiration_date: expirationDate,
-            quantity: quantity
-          }])
-      }
-    } catch (err) {
-      console.error('Error en updateOrCreateBatch:', err)
-      throw err
-    }
-  }
-
   const handleQuantityChange = (productId, value) => {
     const qty = parseInt(value) || 0
     setQuantities(prev => ({ ...prev, [productId]: qty }))
@@ -253,6 +205,9 @@ export default function Movements() {
 
   const handleSubmit = async (e) => {
     e.preventDefault()
+    
+    if (loading) return
+    
     setLoading(true)
     setMessage(null)
 
@@ -313,6 +268,8 @@ export default function Movements() {
           movementNotes += ` | Lote: ${lotNumber} | Caducidad: ${expirationDate}`
         }
 
+        // Solo insertar en inventory_movements
+        // El trigger trigger_manual_inventory_movement se encarga de actualizar inventory_batches y inventory_totals
         const { error } = await supabase
           .from('inventory_movements')
           .insert([{
@@ -324,12 +281,6 @@ export default function Movements() {
           }])
 
         if (error) throw error
-
-        if (requiresBatch(movementType)) {
-          const lotNumber = batchNumbers[productId]
-          const expirationDate = expirationDates[productId]
-          await updateOrCreateBatch(productId, selectedLocation, lotNumber, expirationDate, qty, true)
-        }
       }
 
       const productCount = movementsToRegister.length
@@ -503,7 +454,7 @@ export default function Movements() {
                 )}
                 <th>Cantidad</th>
                 <th>Efecto</th>
-              </tr>
+               </thead>
             </thead>
             <tbody>
               {products.map(product => {
@@ -514,8 +465,8 @@ export default function Movements() {
                 
                 return (
                   <tr key={product.id} style={{ backgroundColor: qty > 0 ? '#f9f9f9' : 'white' }}>
-                    <td><strong>{product.name}</strong></td>
-                    <td style={{ textAlign: 'center' }}>{currentStock}</td>
+                    <td><strong>{product.name}</strong>蹲
+                    <td style={{ textAlign: 'center' }}>{currentStock}蹲
                     {requiresBatch(movementType) && (
                       <>
                         <td>
@@ -526,7 +477,7 @@ export default function Movements() {
                             placeholder="Ej: LOTE-001"
                             style={{ width: '120px', padding: '5px' }}
                           />
-                        </td>
+                        蹲
                         <td>
                           <input
                             type="date"
@@ -534,7 +485,7 @@ export default function Movements() {
                             onChange={(e) => handleExpirationChange(product.id, e.target.value)}
                             style={{ width: '130px', padding: '5px' }}
                           />
-                        </td>
+                        蹲
                       </>
                     )}
                     <td style={{ textAlign: 'center' }}>
@@ -545,15 +496,15 @@ export default function Movements() {
                         onChange={(e) => handleQuantityChange(product.id, e.target.value)}
                         style={{ width: '100px', padding: '5px', textAlign: 'center' }}
                       />
-                    </td>
+                    蹲
                     <td style={{ textAlign: 'center', color: effectColor, fontWeight: 'bold' }}>
                       {effectText}
-                    </td>
-                  </tr>
+                    蹲
+                  蹲
                 )
               })}
             </tbody>
-          </table>
+          窗口
         </div>
 
         {Object.values(quantities).some(q => q > 0) && (
