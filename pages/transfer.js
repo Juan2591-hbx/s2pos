@@ -89,28 +89,20 @@ export default function Transfer() {
     }
   }
 
-  async function updateOrCreateBatch(productId, locationId, batchNumber, expirationDate, quantity, isAddition) {
-    console.log('updateOrCreateBatch llamado:', { productId, locationId, batchNumber, expirationDate, quantity, isAddition })
-    
+  async function updateOrCreateBatch(productId, locationId, lotNumber, expirationDate, quantity, isAddition) {
     try {
-      // Buscar si el lote ya existe
+      // Buscar si el lote ya existe por lot_number
       const { data: existingBatch, error: searchError } = await supabase
         .from('inventory_batches')
         .select('id, quantity')
         .eq('product_id', productId)
         .eq('location_id', locationId)
-        .eq('batch_number', batchNumber)
+        .eq('lot_number', lotNumber)  // ← CAMBIADO: batch_number → lot_number
         .maybeSingle()
 
-      if (searchError) {
-        console.error('Error buscando lote:', searchError)
-        throw searchError
-      }
-
-      console.log('Lote existente:', existingBatch)
+      if (searchError) throw searchError
 
       if (existingBatch) {
-        // Si existe, actualizar cantidad
         let newQuantity
         if (isAddition) {
           newQuantity = existingBatch.quantity + quantity
@@ -118,51 +110,34 @@ export default function Transfer() {
           newQuantity = existingBatch.quantity - quantity
         }
         
-        console.log('Actualizando lote:', { id: existingBatch.id, newQuantity })
-        
         if (newQuantity <= 0) {
-          // Si la cantidad llega a 0, eliminar el lote
           const { error: deleteError } = await supabase
             .from('inventory_batches')
             .delete()
             .eq('id', existingBatch.id)
           
-          if (deleteError) {
-            console.error('Error eliminando lote:', deleteError)
-            throw deleteError
-          }
-          console.log('Lote eliminado')
+          if (deleteError) throw deleteError
         } else {
-          // Si queda stock, actualizar
           const { error: updateError } = await supabase
             .from('inventory_batches')
             .update({ quantity: newQuantity })
             .eq('id', existingBatch.id)
           
-          if (updateError) {
-            console.error('Error actualizando lote:', updateError)
-            throw updateError
-          }
-          console.log('Lote actualizado a:', newQuantity)
+          if (updateError) throw updateError
         }
       } else if (isAddition && quantity > 0) {
-        // Si no existe y es una suma, crear nuevo lote
-        console.log('Creando nuevo lote')
+        // Crear nuevo lote con lot_number
         const { error: insertError } = await supabase
           .from('inventory_batches')
           .insert([{
             product_id: productId,
             location_id: locationId,
-            batch_number: batchNumber,
+            lot_number: lotNumber,  // ← CAMBIADO: batch_number → lot_number
             expiration_date: expirationDate,
             quantity: quantity
           }])
         
-        if (insertError) {
-          console.error('Error insertando lote:', insertError)
-          throw insertError
-        }
-        console.log('Nuevo lote creado')
+        if (insertError) throw insertError
       }
     } catch (err) {
       console.error('Error en updateOrCreateBatch:', err)
@@ -242,7 +217,6 @@ export default function Transfer() {
       return
     }
 
-    // Validar lote y caducidad
     for (const { productId, qty } of transfers) {
       const batch = batchNumbers[productId]
       const expiration = expirationDates[productId]
@@ -267,12 +241,10 @@ export default function Transfer() {
 
     try {
       for (const { productId, qty } of transfers) {
-        const batchNumber = batchNumbers[productId]
+        const lotNumber = batchNumbers[productId]
         const expirationDate = expirationDates[productId]
         
-        console.log('Procesando transferencia:', { productId, qty, batchNumber, expirationDate, fromLocation, toLocation })
-        
-        // 1. Registrar movimiento de SALIDA en inventory_movements
+        // 1. Salida
         const { error: errorOut } = await supabase
           .from('inventory_movements')
           .insert([{
@@ -280,15 +252,12 @@ export default function Transfer() {
             location_id: fromLocation,
             quantity: -qty,
             movement_type: 'transfer_out',
-            notes: `Transferencia a ${toName} | Lote: ${batchNumber} | Caducidad: ${expirationDate}`
+            notes: `Transferencia a ${toName} | Lote: ${lotNumber} | Caducidad: ${expirationDate}`
           }])
 
-        if (errorOut) {
-          console.error('Error en salida:', errorOut)
-          throw errorOut
-        }
+        if (errorOut) throw errorOut
 
-        // 2. Registrar movimiento de ENTRADA en inventory_movements
+        // 2. Entrada
         const { error: errorIn } = await supabase
           .from('inventory_movements')
           .insert([{
@@ -296,21 +265,16 @@ export default function Transfer() {
             location_id: toLocation,
             quantity: qty,
             movement_type: 'transfer_in',
-            notes: `Transferencia desde ${fromName} | Lote: ${batchNumber} | Caducidad: ${expirationDate}`
+            notes: `Transferencia desde ${fromName} | Lote: ${lotNumber} | Caducidad: ${expirationDate}`
           }])
 
-        if (errorIn) {
-          console.error('Error en entrada:', errorIn)
-          throw errorIn
-        }
+        if (errorIn) throw errorIn
 
-        // 3. Actualizar/Crear lote en DESTINO (suma cantidad)
-        console.log('Actualizando lote en DESTINO:', toLocation)
-        await updateOrCreateBatch(productId, toLocation, batchNumber, expirationDate, qty, true)
+        // 3. Actualizar lote en DESTINO (sumar)
+        await updateOrCreateBatch(productId, toLocation, lotNumber, expirationDate, qty, true)
 
-        // 4. Actualizar lote en ORIGEN (resta cantidad)
-        console.log('Actualizando lote en ORIGEN:', fromLocation)
-        await updateOrCreateBatch(productId, fromLocation, batchNumber, expirationDate, qty, false)
+        // 4. Actualizar lote en ORIGEN (restar)
+        await updateOrCreateBatch(productId, fromLocation, lotNumber, expirationDate, qty, false)
       }
 
       setMessage({ 
