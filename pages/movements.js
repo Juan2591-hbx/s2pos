@@ -463,8 +463,8 @@ export default function Movements() {
                 
                 return (
                   <tr key={product.id} style={{ backgroundColor: qty > 0 ? '#f9f9f9' : 'white' }}>
-                    <td><strong>{product.name}</strong>蹲
-                    <td style={{ textAlign: 'center' }}>{currentStock}蹲
+                    <td><strong>{product.name}</strong></td>
+                    <td style={{ textAlign: 'center' }}>{currentStock}</td>
                     {requiresBatch(movementType) && (
                       <>
                         <td>
@@ -475,7 +475,7 @@ export default function Movements() {
                             placeholder="Ej: LOTE-001"
                             style={{ width: '120px', padding: '5px' }}
                           />
-                        蹲
+                        </td>
                         <td>
                           <input
                             type="date"
@@ -483,7 +483,7 @@ export default function Movements() {
                             onChange={(e) => handleExpirationChange(product.id, e.target.value)}
                             style={{ width: '130px', padding: '5px' }}
                           />
-                        蹲
+                        </td>
                       </>
                     )}
                     <td style={{ textAlign: 'center' }}>
@@ -494,15 +494,15 @@ export default function Movements() {
                         onChange={(e) => handleQuantityChange(product.id, e.target.value)}
                         style={{ width: '100px', padding: '5px', textAlign: 'center' }}
                       />
-                    蹲
+                    </td>
                     <td style={{ textAlign: 'center', color: effectColor, fontWeight: 'bold' }}>
                       {effectText}
-                    蹲
-                  蹲
+                    </td>
+                  </tr>
                 )
               })}
             </tbody>
-          窗口
+          </table>
         </div>
 
         {Object.values(quantities).some(q => q > 0) && (
