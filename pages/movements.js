@@ -16,10 +16,8 @@ export default function Movements() {
   const [loadingData, setLoadingData] = useState(true)
   const [message, setMessage] = useState(null)
 
-  // Tipos que requieren lote y caducidad (solo reabastecimiento)
   const typesRequiringBatch = ['restock']
 
-  // Tipos base para POS (sin transferencias)
   const baseMovementTypes = [
     { type: 'adjustment_pos', description: '✏️ Ajuste Positivo (suma stock)', effect: '➕' },
     { type: 'adjustment_neg', description: '✏️ Ajuste Negativo (resta stock)', effect: '➖' },
@@ -29,7 +27,6 @@ export default function Movements() {
     { type: 'damaged', description: '🔨 Dañado (resta stock)', effect: '➖' }
   ]
 
-  // Tipos adicionales solo para warehouse/hybrid
   const warehouseTypes = [
     { type: 'restock', description: '📦 Reabastecimiento (suma stock)', effect: '➕' }
   ]
@@ -308,17 +305,20 @@ export default function Movements() {
           finalQuantity = qty
         }
 
+        let movementNotes = notes || `Movimiento masivo: ${movementInfo?.description}`
+        
+        if (requiresBatch(movementType)) {
+          const lotNumber = batchNumbers[productId]
+          const expirationDate = expirationDates[productId]
+          movementNotes += ` | Lote: ${lotNumber} | Caducidad: ${expirationDate}`
+        }
+
         const movementData = {
           product_id: productId,
           location_id: selectedLocation,
           quantity: finalQuantity,
           movement_type: movementType,
-          notes: notes || `Movimiento masivo: ${movementInfo?.description}`
-        }
-
-        if (requiresBatch(movementType)) {
-          movementData.lot_number = batchNumbers[productId]
-          movementData.expiration_date = expirationDates[productId]
+          notes: movementNotes
         }
 
         const { error } = await supabase
@@ -327,7 +327,6 @@ export default function Movements() {
 
         if (error) throw error
 
-        // Actualizar inventory_batches solo para reabastecimiento
         if (requiresBatch(movementType)) {
           const lotNumber = batchNumbers[productId]
           const expirationDate = expirationDates[productId]
@@ -506,7 +505,7 @@ export default function Movements() {
                 )}
                 <th>Cantidad</th>
                 <th>Efecto</th>
-              </tr>
+               </tr>
             </thead>
             <tbody>
               {products.map(product => {
