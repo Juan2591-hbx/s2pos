@@ -161,7 +161,6 @@ export default function Transfer() {
       return
     }
 
-    // Validar lote y caducidad
     for (const { productId, qty } of transfers) {
       const batch = batchNumbers[productId]
       const expiration = expirationDates[productId]
@@ -189,7 +188,6 @@ export default function Transfer() {
         const batchNumber = batchNumbers[productId]
         const expirationDate = expirationDates[productId]
         
-        // Salida - la fecha de caducidad va en la nota, no como columna
         const { error: errorOut } = await supabase
           .from('inventory_movements')
           .insert([{
@@ -202,7 +200,6 @@ export default function Transfer() {
 
         if (errorOut) throw errorOut
 
-        // Entrada - la fecha de caducidad va en la nota
         const { error: errorIn } = await supabase
           .from('inventory_movements')
           .insert([{
@@ -393,7 +390,7 @@ export default function Transfer() {
                     <th>Fecha Caducidad</th>
                     <th>Cantidad a Transferir</th>
                     <th>Destino</th>
-                  </table>
+                  </tr>
                 </thead>
                 <tbody>
                   {products.map(product => (
