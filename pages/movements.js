@@ -305,17 +305,14 @@ export default function Movements() {
           finalQuantity = qty
         }
 
-        // Construir la nota con toda la información
         let movementNotes = notes || `Movimiento masivo: ${movementInfo?.description}`
         
-        // Para reabastecimiento, agregar lote y caducidad en la nota (NO como columna)
         if (requiresBatch(movementType)) {
           const lotNumber = batchNumbers[productId]
           const expirationDate = expirationDates[productId]
           movementNotes += ` | Lote: ${lotNumber} | Caducidad: ${expirationDate}`
         }
 
-        // Insertar en inventory_movements - SOLO las columnas que existen
         const { error } = await supabase
           .from('inventory_movements')
           .insert([{
@@ -328,7 +325,6 @@ export default function Movements() {
 
         if (error) throw error
 
-        // Actualizar inventory_batches para reabastecimiento (aquí sí va la fecha de caducidad)
         if (requiresBatch(movementType)) {
           const lotNumber = batchNumbers[productId]
           const expirationDate = expirationDates[productId]
@@ -507,7 +503,7 @@ export default function Movements() {
                 )}
                 <th>Cantidad</th>
                 <th>Efecto</th>
-              </thead>
+              </tr>
             </thead>
             <tbody>
               {products.map(product => {
@@ -518,8 +514,8 @@ export default function Movements() {
                 
                 return (
                   <tr key={product.id} style={{ backgroundColor: qty > 0 ? '#f9f9f9' : 'white' }}>
-                    <td><strong>{product.name}</strong>蹲
-                    <td style={{ textAlign: 'center' }}>{currentStock}蹲
+                    <td><strong>{product.name}</strong></td>
+                    <td style={{ textAlign: 'center' }}>{currentStock}</td>
                     {requiresBatch(movementType) && (
                       <>
                         <td>
@@ -530,7 +526,7 @@ export default function Movements() {
                             placeholder="Ej: LOTE-001"
                             style={{ width: '120px', padding: '5px' }}
                           />
-                        蹲
+                        </td>
                         <td>
                           <input
                             type="date"
@@ -538,7 +534,7 @@ export default function Movements() {
                             onChange={(e) => handleExpirationChange(product.id, e.target.value)}
                             style={{ width: '130px', padding: '5px' }}
                           />
-                        蹲
+                        </td>
                       </>
                     )}
                     <td style={{ textAlign: 'center' }}>
@@ -549,15 +545,15 @@ export default function Movements() {
                         onChange={(e) => handleQuantityChange(product.id, e.target.value)}
                         style={{ width: '100px', padding: '5px', textAlign: 'center' }}
                       />
-                    蹲
+                    </td>
                     <td style={{ textAlign: 'center', color: effectColor, fontWeight: 'bold' }}>
                       {effectText}
-                    蹲
-                  蹲
+                    </td>
+                  </tr>
                 )
               })}
             </tbody>
-          窗口
+          </table>
         </div>
 
         {Object.values(quantities).some(q => q > 0) && (
