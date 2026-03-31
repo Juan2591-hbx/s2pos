@@ -16,19 +16,20 @@ export default function Movements() {
   const [loadingData, setLoadingData] = useState(true)
   const [message, setMessage] = useState(null)
 
-  const typesRequiringBatch = ['restock', 'transfer_in', 'transfer_out']
+  // Tipos que requieren lote y caducidad (solo reabastecimiento)
+  const typesRequiringBatch = ['restock']
 
+  // Tipos base para POS (sin transferencias)
   const baseMovementTypes = [
     { type: 'adjustment_pos', description: '✏️ Ajuste Positivo (suma stock)', effect: '➕' },
     { type: 'adjustment_neg', description: '✏️ Ajuste Negativo (resta stock)', effect: '➖' },
     { type: 'employee', description: '👥 Empleado (resta stock)', effect: '➖' },
     { type: 'promo', description: '🎁 Promoción (resta stock)', effect: '➖' },
     { type: 'expired', description: '⏰ Vencido (resta stock)', effect: '➖' },
-    { type: 'damaged', description: '🔨 Dañado (resta stock)', effect: '➖' },
-    { type: 'transfer_in', description: '🚚 Transferencia Entrada (suma stock)', effect: '➕' },
-    { type: 'transfer_out', description: '📤 Transferencia Salida (resta stock)', effect: '➖' }
+    { type: 'damaged', description: '🔨 Dañado (resta stock)', effect: '➖' }
   ]
 
+  // Tipos adicionales solo para warehouse/hybrid
   const warehouseTypes = [
     { type: 'restock', description: '📦 Reabastecimiento (suma stock)', effect: '➕' }
   ]
@@ -119,6 +120,54 @@ export default function Movements() {
     }
   }
 
+  async function updateOrCreateBatch(productId, locationId, lotNumber, expirationDate, quantity, isAddition) {
+    try {
+      const { data: existingBatch, error: searchError } = await supabase
+        .from('inventory_batches')
+        .select('id, quantity')
+        .eq('product_id', productId)
+        .eq('location_id', locationId)
+        .eq('lot_number', lotNumber)
+        .maybeSingle()
+
+      if (searchError) throw searchError
+
+      if (existingBatch) {
+        let newQuantity
+        if (isAddition) {
+          newQuantity = existingBatch.quantity + quantity
+        } else {
+          newQuantity = existingBatch.quantity - quantity
+        }
+        
+        if (newQuantity <= 0) {
+          await supabase
+            .from('inventory_batches')
+            .delete()
+            .eq('id', existingBatch.id)
+        } else {
+          await supabase
+            .from('inventory_batches')
+            .update({ quantity: newQuantity })
+            .eq('id', existingBatch.id)
+        }
+      } else if (isAddition && quantity > 0) {
+        await supabase
+          .from('inventory_batches')
+          .insert([{
+            product_id: productId,
+            location_id: locationId,
+            lot_number: lotNumber,
+            expiration_date: expirationDate,
+            quantity: quantity
+          }])
+      }
+    } catch (err) {
+      console.error('Error en updateOrCreateBatch:', err)
+      throw err
+    }
+  }
+
   const handleQuantityChange = (productId, value) => {
     const qty = parseInt(value) || 0
     setQuantities(prev => ({ ...prev, [productId]: qty }))
@@ -133,11 +182,11 @@ export default function Movements() {
   }
 
   const isExitMovement = (type) => {
-    return ['adjustment_neg', 'employee', 'promo', 'expired', 'damaged', 'transfer_out'].includes(type)
+    return ['adjustment_neg', 'employee', 'promo', 'expired', 'damaged'].includes(type)
   }
 
   const isEntryMovement = (type) => {
-    return ['adjustment_pos', 'restock', 'transfer_in'].includes(type)
+    return ['adjustment_pos', 'restock'].includes(type)
   }
 
   const requiresBatch = (type) => {
@@ -268,7 +317,7 @@ export default function Movements() {
         }
 
         if (requiresBatch(movementType)) {
-          movementData.batch_number = batchNumbers[productId]
+          movementData.lot_number = batchNumbers[productId]
           movementData.expiration_date = expirationDates[productId]
         }
 
@@ -277,6 +326,13 @@ export default function Movements() {
           .insert([movementData])
 
         if (error) throw error
+
+        // Actualizar inventory_batches solo para reabastecimiento
+        if (requiresBatch(movementType)) {
+          const lotNumber = batchNumbers[productId]
+          const expirationDate = expirationDates[productId]
+          await updateOrCreateBatch(productId, selectedLocation, lotNumber, expirationDate, qty, true)
+        }
       }
 
       const productCount = movementsToRegister.length
@@ -374,7 +430,7 @@ export default function Movements() {
         marginBottom: '20px',
         borderLeft: '4px solid #2196f3'
       }}>
-        💡 Registra múltiples productos en un solo movimiento. {requiresBatch(movementType) && 'Los movimientos de entrada requieren número de lote y fecha de caducidad.'}
+        💡 Registra múltiples productos en un solo movimiento. {requiresBatch(movementType) && 'Los reabastecimientos requieren número de lote y fecha de caducidad.'}
       </div>
 
       <form onSubmit={handleSubmit}>
