@@ -455,7 +455,6 @@ export default function Movements() {
                 <th>Cantidad</th>
                 <th>Efecto</th>
                </thead>
-            </thead>
             <tbody>
               {products.map(product => {
                 const currentStock = stockMap[product.id] || 0
