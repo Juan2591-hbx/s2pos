@@ -265,6 +265,8 @@ export default function Transfer() {
             location_id: toLocation,
             quantity: qty,
             movement_type: 'transfer_in',
+            lot_number: batchNumber,        // ← Agregar
+            expiration_date: expirationDate, // ← Agregar
             notes: `Transferencia desde ${fromName} | Lote: ${lotNumber} | Caducidad: ${expirationDate}`
           }])
 
