@@ -186,9 +186,11 @@ export default function Transfer() {
 
     try {
       for (const { productId, qty } of transfers) {
+        // DEFINIR LAS VARIABLES AQUÍ
         const batchNumber = batchNumbers[productId]
         const expirationDate = expirationDates[productId]
         
+        // TRANSFER_OUT (salida) - solo nota
         const { error: errorOut } = await supabase
           .from('inventory_movements')
           .insert([{
@@ -201,6 +203,7 @@ export default function Transfer() {
 
         if (errorOut) throw errorOut
 
+        // TRANSFER_IN (entrada) - con lot_number y expiration_date
         const { error: errorIn } = await supabase
           .from('inventory_movements')
           .insert([{
@@ -393,7 +396,7 @@ export default function Transfer() {
                     <th>Fecha Caducidad</th>
                     <th>Cantidad a Transferir</th>
                     <th>Destino</th>
-                  </tr>
+                   </thead>
                 </thead>
                 <tbody>
                   {products.map(product => (
