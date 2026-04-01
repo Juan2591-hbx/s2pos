@@ -276,7 +276,16 @@ export default function Movements() {
           movementData.notes += ` | Lote: ${batchNumbers[productId]} | Caducidad: ${expirationDates[productId]}`
         }
 
-        const { error } = await supabase
+        console.log('Enviando movimiento:', {
+  product_id: productId,
+  location_id: selectedLocation,
+  quantity: finalQuantity,
+  movement_type: movementType,
+  lot_number: batchNumbers[productId],
+  expiration_date: expirationDates[productId],
+  notes: movementNotes
+})
+          const { error } = await supabase
           .from('inventory_movements')
           .insert([movementData])
 
