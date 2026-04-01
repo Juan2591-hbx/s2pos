@@ -394,7 +394,7 @@ export default function Transfer() {
                     <th>Cantidad a Transferir</th>
                     <th>Destino</th>
                    </thead>
-                </thead>
+              
                 <tbody>
                   {products.map(product => (
                     <tr key={product.id}>
