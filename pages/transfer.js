@@ -393,7 +393,8 @@ export default function Transfer() {
                     <th>Fecha Caducidad</th>
                     <th>Cantidad a Transferir</th>
                     <th>Destino</th>
-                   </thead>
+                  </tr>
+                </thead>
                 <tbody>
                   {products.map(product => (
                     <tr key={product.id}>
